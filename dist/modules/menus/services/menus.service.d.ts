@@ -1,0 +1,36 @@
+import { BranchCatalogEntity, BranchCatalogRecord } from '../entities/branch-catalog.entity';
+import { ItemOptionGroupOwnershipEntity, ItemOptionGroupOwnershipRecord } from '../entities/item-option-group-ownership.entity';
+import { ItemOptionOwnershipEntity, ItemOptionOwnershipRecord } from '../entities/item-option-ownership.entity';
+import { MenuCategoryOwnershipEntity, MenuCategoryOwnershipRecord } from '../entities/menu-category-ownership.entity';
+import { MenuItemOwnershipEntity, MenuItemOwnershipRecord } from '../entities/menu-item-ownership.entity';
+import { MenusRepository } from '../repositories/menus.repository';
+export declare class MenusService {
+    private readonly menusRepository;
+    constructor(menusRepository: MenusRepository);
+    findCategoryById(id: string): Promise<MenuCategoryOwnershipRecord | null>;
+    listCategoriesByBranchId(branchId: string): Promise<MenuCategoryOwnershipRecord[]>;
+    findItemById(id: string): Promise<MenuItemOwnershipRecord | null>;
+    listItemsByBranchId(branchId: string): Promise<MenuItemOwnershipRecord[]>;
+    findOptionGroupById(id: string): Promise<ItemOptionGroupOwnershipRecord | null>;
+    listOptionGroupsByMenuItemId(menuItemId: string): Promise<ItemOptionGroupOwnershipRecord[]>;
+    findOptionById(id: string): Promise<ItemOptionOwnershipRecord | null>;
+    listOptionsByOptionGroupId(optionGroupId: string): Promise<ItemOptionOwnershipRecord[]>;
+    findBranchCatalogByBranchId(branchId: string): Promise<BranchCatalogRecord | null>;
+    findCategoryOwnedByUserId(userId: string, categoryId: string): Promise<MenuCategoryOwnershipRecord | null>;
+    findItemOwnedByUserId(userId: string, itemId: string): Promise<MenuItemOwnershipRecord | null>;
+    findOptionGroupOwnedByUserId(userId: string, optionGroupId: string): Promise<ItemOptionGroupOwnershipRecord | null>;
+    findOptionOwnedByUserId(userId: string, optionId: string): Promise<ItemOptionOwnershipRecord | null>;
+    findOwnedBranchCatalogByUserId(userId: string, branchId: string): Promise<BranchCatalogRecord | null>;
+    buildCategoryOwnership(category: MenuCategoryOwnershipRecord): MenuCategoryOwnershipEntity;
+    buildItemOwnership(item: MenuItemOwnershipRecord): MenuItemOwnershipEntity;
+    buildOptionGroupOwnership(group: ItemOptionGroupOwnershipRecord): ItemOptionGroupOwnershipEntity;
+    buildOptionOwnership(option: ItemOptionOwnershipRecord): ItemOptionOwnershipEntity;
+    buildBranchCatalog(branch: BranchCatalogRecord, options?: {
+        activeOnly?: boolean;
+    }): BranchCatalogEntity;
+    categoryBelongsToMerchantUser(category: MenuCategoryOwnershipRecord, userId: string): boolean;
+    itemBelongsToMerchantUser(item: MenuItemOwnershipRecord, userId: string): boolean;
+    optionGroupBelongsToMerchantUser(group: ItemOptionGroupOwnershipRecord, userId: string): boolean;
+    optionBelongsToMerchantUser(option: ItemOptionOwnershipRecord, userId: string): boolean;
+    branchCatalogBelongsToMerchantUser(branchCatalog: BranchCatalogRecord, userId: string): boolean;
+}

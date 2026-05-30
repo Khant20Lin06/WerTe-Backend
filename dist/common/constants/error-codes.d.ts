@@ -1,0 +1,24 @@
+export declare const ErrorCodes: {
+    readonly badRequest: "BAD_REQUEST";
+    readonly validationFailed: "VALIDATION_FAILED";
+    readonly unauthorized: "UNAUTHORIZED";
+    readonly invalidCredentials: "INVALID_CREDENTIALS";
+    readonly invalidToken: "INVALID_TOKEN";
+    readonly sessionRevoked: "SESSION_REVOKED";
+    readonly sessionExpired: "SESSION_EXPIRED";
+    readonly forbidden: "FORBIDDEN";
+    readonly accountSuspended: "ACCOUNT_SUSPENDED";
+    readonly accountPending: "ACCOUNT_PENDING";
+    readonly notFound: "NOT_FOUND";
+    readonly conflict: "CONFLICT";
+    readonly unprocessableEntity: "UNPROCESSABLE_ENTITY";
+    readonly timeout: "REQUEST_TIMEOUT";
+    readonly tooManyRequests: "TOO_MANY_REQUESTS";
+    readonly databaseUnavailable: "DATABASE_UNAVAILABLE";
+    readonly databaseConstraintViolation: "DATABASE_CONSTRAINT_VIOLATION";
+    readonly databaseRecordNotFound: "DATABASE_RECORD_NOT_FOUND";
+    readonly databaseQueryInvalid: "DATABASE_QUERY_INVALID";
+    readonly internalServerError: "INTERNAL_SERVER_ERROR";
+};
+export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];
+export declare function mapHttpStatusToErrorCode(status: number): ErrorCode;

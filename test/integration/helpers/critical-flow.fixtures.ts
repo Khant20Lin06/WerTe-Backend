@@ -1,0 +1,437 @@
+import {
+  AuditActionSource,
+  AuditActorType,
+  AuditResourceType,
+  BranchStatus,
+  CartStatus,
+  ConversationParticipantRole,
+  ConversationType,
+  MerchantStatus,
+  MessageDeliveryStatus,
+  MessageSenderKind,
+  MessageType,
+  NotificationChannel,
+  NotificationDeliveryStatus,
+  NotificationType,
+  ItemOptionGroupKind,
+  OrderStatus,
+  PaymentMethod,
+  PaymentProvider,
+  PaymentStatus,
+  RiderStatus,
+  UserRole,
+  UserStatus,
+} from '@prisma/client';
+
+import { CartAggregateEntity } from '../../../src/modules/carts/entities/cart-aggregate.entity';
+import { CheckoutPreviewEntity } from '../../../src/modules/checkout/entities/checkout-preview.entity';
+import { CheckoutSubmissionEntity } from '../../../src/modules/checkout/entities/checkout-submission.entity';
+import { AuditLogEntity } from '../../../src/modules/audit/entities/audit-log.entity';
+import { ConversationSummaryEntity } from '../../../src/modules/messaging/entities/conversation-summary.entity';
+import { SentMessageEntity } from '../../../src/modules/messaging/entities/sent-message.entity';
+import { NotificationCenterEntity } from '../../../src/modules/notifications/entities/notification-center.entity';
+import { OrderDetailEntity } from '../../../src/modules/orders/entities/order-detail.entity';
+
+const ISO = '2026-04-24T00:00:00.000Z';
+
+export function createCartAggregateEntity(): CartAggregateEntity {
+  return {
+    cartId: 'cart_1',
+    customerProfileId: 'cust_prof_1',
+    branchId: 'branch_1',
+    merchantId: 'merchant_1',
+    branchName: 'Downtown Branch',
+    branchStatus: BranchStatus.ACTIVE,
+    merchantStatus: MerchantStatus.ACTIVE,
+    status: CartStatus.ACTIVE,
+    totalQuantity: 2,
+    subtotalAmount: '6500',
+    totalAmount: '6500',
+    isEmpty: false,
+    items: [
+      {
+        cartItemId: 'cart_item_1',
+        menuItemId: 'item_1',
+        branchId: 'branch_1',
+        categoryId: 'cat_1',
+        menuItemName: 'Mohinga',
+        menuItemDescription: 'Signature breakfast item',
+        menuItemImageUrl: null,
+        menuItemBasePrice: '2500',
+        menuItemIsAvailable: true,
+        quantity: 2,
+        unitPriceSnapshot: '3250',
+        lineTotal: '6500',
+        selectedOptions: [
+          {
+            cartItemOptionId: 'cart_item_option_1',
+            itemOptionId: 'option_1',
+            itemOptionName: 'Extra fish cake',
+            itemOptionIsActive: true,
+            optionGroupId: 'group_1',
+            optionGroupName: 'Choose extras',
+            optionGroupIsActive: true,
+            nameSnapshot: 'Extra fish cake',
+            priceDeltaSnapshot: '750',
+          },
+        ],
+      },
+    ],
+  };
+}
+
+export function createCheckoutPreviewEntity(): CheckoutPreviewEntity {
+  return {
+    currencyCode: 'MMK',
+    customer: {
+      customerProfileId: 'cust_prof_1',
+      userId: 'usr_customer_1',
+      phone: '09123456789',
+      role: UserRole.CUSTOMER,
+      userStatus: UserStatus.ACTIVE,
+      fullName: 'Mg Mg',
+      avatarUrl: null,
+    },
+    address: {
+      addressId: 'addr_1',
+      label: 'Home',
+      line1: 'No. 1, Main Road',
+      line2: null,
+      landmark: 'Near City Mart',
+      township: 'Botahtaung',
+      city: 'Yangon',
+      postalCode: '11111',
+      deliveryInstructions: 'Call before arrival',
+      latitude: '16.834',
+      longitude: '96.176',
+      isDefault: true,
+    },
+    branch: {
+      branchId: 'branch_1',
+      merchantId: 'merchant_1',
+      merchantUserId: 'usr_merchant_1',
+      merchantName: 'Merchant One',
+      merchantStatus: MerchantStatus.ACTIVE,
+      branchName: 'Downtown Branch',
+      township: 'Botahtaung',
+      branchStatus: BranchStatus.ACTIVE,
+    },
+    cart: createCartAggregateEntity(),
+    pricing: {
+      currencyCode: 'MMK',
+      subtotalAmount: '6500',
+      discountAmount: '0',
+      deliveryFee: '500',
+      totalAmount: '7000',
+    },
+  };
+}
+
+export function createCheckoutSubmissionEntity(): CheckoutSubmissionEntity {
+  return {
+    orderId: 'order_1',
+    orderCode: 'ORD-00000001',
+    customerProfileId: 'cust_prof_1',
+    branchId: 'branch_1',
+    addressId: 'addr_1',
+    cartId: 'cart_1',
+    idempotencyKey: 'checkout-001',
+    status: OrderStatus.PLACED,
+    currencyCode: 'MMK',
+    subtotalAmount: '6500',
+    discountAmount: '0',
+    deliveryFee: '500',
+    totalAmount: '7000',
+    placedAt: ISO,
+    isIdempotentReplay: false,
+    paymentIntent: {
+      paymentId: 'payment_1',
+      orderId: 'order_1',
+      customerProfileId: 'cust_prof_1',
+      method: PaymentMethod.CASH_ON_DELIVERY,
+      provider: PaymentProvider.COD,
+      status: PaymentStatus.PENDING,
+      amount: '7000',
+      currencyCode: 'MMK',
+      idempotencyKey: 'checkout-001',
+      providerReference: null,
+      providerReceiptId: null,
+      failureCode: null,
+      failureMessage: null,
+      requiresActionAt: null,
+      succeededAt: null,
+      failedAt: null,
+      cancelledAt: null,
+      expiredAt: null,
+      requiresCustomerAction: false,
+      createdAt: ISO,
+      updatedAt: ISO,
+    },
+  };
+}
+
+export function createOrderDetailEntity(): OrderDetailEntity {
+  return {
+    orderId: 'order_1',
+    orderCode: 'ORD-00000001',
+    customerProfileId: 'cust_prof_1',
+    branchId: 'branch_1',
+    addressId: 'addr_1',
+    cartId: 'cart_1',
+    status: OrderStatus.MERCHANT_ACCEPTED,
+    currencyCode: 'MMK',
+    subtotalAmount: '6500',
+    discountAmount: '0',
+    deliveryFee: '500',
+    totalAmount: '7000',
+    placedAt: ISO,
+    updatedAt: ISO,
+    availableActions: ['mark_preparing'],
+    customer: {
+      customerProfileId: 'cust_prof_1',
+      userId: 'usr_customer_1',
+      phone: '09123456789',
+      userStatus: UserStatus.ACTIVE,
+      fullName: 'Mg Mg',
+      avatarUrl: null,
+    },
+    branch: {
+      branchId: 'branch_1',
+      branchName: 'Downtown Branch',
+      branchStatus: BranchStatus.ACTIVE,
+      township: 'Botahtaung',
+      merchantId: 'merchant_1',
+      merchantUserId: 'usr_merchant_1',
+      merchantName: 'Merchant One',
+      merchantStatus: MerchantStatus.ACTIVE,
+    },
+    delivery: {
+      deliveryId: 'delivery_1',
+      riderId: 'rider_1',
+      etaMinutes: 15,
+      rider: {
+        riderId: 'rider_1',
+        userId: 'usr_rider_1',
+        phone: '0999999999',
+        userStatus: UserStatus.ACTIVE,
+        displayName: 'Ko Aung',
+        vehicleType: 'bike',
+        currentTownship: 'Pabedan',
+        status: RiderStatus.ACTIVE,
+      },
+    },
+    deliveryAddress: {
+      addressId: 'addr_1',
+      label: 'Home',
+      line1: 'No. 1, Main Road',
+      line2: null,
+      landmark: 'Near City Mart',
+      township: 'Botahtaung',
+      city: 'Yangon',
+      postalCode: '11111',
+      deliveryInstructions: 'Call before arrival',
+      latitude: '16.834',
+      longitude: '96.176',
+    },
+    items: [
+      {
+        orderItemId: 'order_item_1',
+        menuItemId: 'item_1',
+        categoryId: 'cat_1',
+        nameSnapshot: 'Mohinga',
+        descriptionSnapshot: 'Signature breakfast item',
+        imageUrlSnapshot: null,
+        selectedVariantCombinationId: null,
+        selectedVariantCombinationNameSnapshot: null,
+        unitBasePriceSnapshot: '2500',
+        unitPriceSnapshot: '3250',
+        quantity: 2,
+        lineTotal: '6500',
+        inventoryLotAllocations: [
+          {
+            orderItemInventoryLotAllocationId: 'order_item_lot_alloc_1',
+            inventoryLotId: 'lot_1',
+            batchNoSnapshot: 'BATCH-001',
+            expiryDateSnapshot: '2026-05-30T00:00:00.000Z',
+            quantity: 2,
+          },
+        ],
+        selectedOptions: [
+          {
+            orderItemOptionId: 'order_item_option_1',
+            itemOptionId: 'option_1',
+            optionGroupId: 'group_1',
+            optionGroupNameSnapshot: 'Choose extras',
+            optionGroupKindSnapshot: ItemOptionGroupKind.ADD_ON,
+            nameSnapshot: 'Extra fish cake',
+            priceDeltaSnapshot: '750',
+          },
+        ],
+      },
+    ],
+    timeline: [
+      {
+        orderStatusHistoryId: 'hist_1',
+        fromStatus: OrderStatus.PLACED,
+        toStatus: OrderStatus.MERCHANT_ACCEPTED,
+        changedByUserId: 'usr_merchant_1',
+        reasonCode: null,
+        note: null,
+        createdAt: ISO,
+      },
+    ],
+  };
+}
+
+export function createConversationSummaryEntity(): ConversationSummaryEntity {
+  return {
+    conversationId: 'con_1',
+    orderId: 'order_1',
+    orderCode: 'ORD-00000001',
+    orderStatus: OrderStatus.RIDER_ASSIGNED,
+    type: ConversationType.ORDER_CHAT,
+    title: 'Order chat',
+    lastMessageId: 'msg_1',
+    lastMessageAt: ISO,
+    unreadCount: 1,
+    createdAt: ISO,
+    updatedAt: ISO,
+    currentParticipant: {
+      participantKey: 'customer:usr_customer_1',
+      roleAtJoin: ConversationParticipantRole.CUSTOMER,
+      canSendMessages: true,
+      canSendAttachments: true,
+      canSendProofs: false,
+      canModerate: false,
+      lastReadMessageId: null,
+      lastReadAt: null,
+    },
+    participants: [
+      {
+        participantKey: 'customer:usr_customer_1',
+        userId: 'usr_customer_1',
+        roleAtJoin: ConversationParticipantRole.CUSTOMER,
+        leftAt: null,
+      },
+      {
+        participantKey: 'merchant:usr_merchant_1',
+        userId: 'usr_merchant_1',
+        roleAtJoin: ConversationParticipantRole.MERCHANT,
+        leftAt: null,
+      },
+    ],
+    preview: {
+      messageId: 'msg_1',
+      senderKind: MessageSenderKind.SYSTEM,
+      senderId: null,
+      type: MessageType.SYSTEM_EVENT,
+      systemEventCode: null,
+      body: 'Order accepted.',
+      attachmentCount: 0,
+      createdAt: ISO,
+    },
+  };
+}
+
+export function createSentMessageEntity(): SentMessageEntity {
+  return {
+    messageId: 'msg_2',
+    conversationId: 'con_1',
+    senderKind: MessageSenderKind.USER,
+    senderId: 'usr_customer_1',
+    type: MessageType.TEXT,
+    systemEventCode: null,
+    body: 'Please call me when you arrive.',
+    metadataJson: null,
+    deletedAt: null,
+    createdAt: ISO,
+    receipts: [
+      {
+        userId: 'usr_merchant_1',
+        status: MessageDeliveryStatus.DELIVERED,
+        deliveredAt: ISO,
+        readAt: null,
+      },
+    ],
+    attachments: [],
+  };
+}
+
+export function createNotificationCenterEntity(): NotificationCenterEntity {
+  return {
+    notificationId: 'notification_1',
+    userId: 'usr_customer_1',
+    type: NotificationType.ORDER_STATUS_UPDATED,
+    title: 'Order accepted',
+    body: 'Your order has been accepted.',
+    navigationPath: '/orders/order_1',
+    metadata: null,
+    readAt: null,
+    orderId: 'order_1',
+    orderCode: 'ORD-00000001',
+    orderStatus: OrderStatus.MERCHANT_ACCEPTED,
+    deliveryId: 'delivery_1',
+    deliveryStatus: 'ASSIGNED',
+    riderId: 'rider_1',
+    conversationId: 'con_1',
+    conversationType: ConversationType.ORDER_CHAT,
+    messageId: 'msg_1',
+    messageType: MessageType.SYSTEM_EVENT,
+    messageCreatedAt: ISO,
+    createdAt: ISO,
+    updatedAt: ISO,
+    inventoryAlert: null,
+    deliveries: [
+      {
+        deliveryId: 'notification_delivery_1',
+        channel: NotificationChannel.IN_APP,
+        status: NotificationDeliveryStatus.SENT,
+        providerMessageId: null,
+        failureCode: null,
+        failureMessage: null,
+        queuedAt: ISO,
+        sentAt: ISO,
+        deliveredAt: ISO,
+        createdAt: ISO,
+        updatedAt: ISO,
+      },
+    ],
+  };
+}
+
+export function createAuditLogEntity(): AuditLogEntity {
+  return {
+    auditLogId: 'audit_1',
+    actorType: AuditActorType.USER,
+    actorRole: UserRole.ADMIN,
+    actionSource: AuditActionSource.API,
+    action: 'orders.assign_rider',
+    resourceType: AuditResourceType.ORDER,
+    resourceId: 'order_1',
+    resourceLabel: 'ORD-00000001',
+    metadata: null,
+    ipAddress: '127.0.0.1',
+    userAgent: 'integration-test',
+    orderId: 'order_1',
+    orderCode: 'ORD-00000001',
+    deliveryId: 'delivery_1',
+    deliveryStatus: 'ASSIGNED',
+    conversationId: 'con_1',
+    conversationType: ConversationType.ORDER_CHAT,
+    messageId: 'msg_1',
+    messageType: MessageType.SYSTEM_EVENT,
+    branchId: 'branch_1',
+    branchName: 'Downtown Branch',
+    actorUser: {
+      userId: 'usr_admin_1',
+      role: UserRole.ADMIN,
+      phone: '09777777777',
+    },
+    targetUser: {
+      userId: 'usr_rider_1',
+      role: UserRole.RIDER,
+      phone: '0999999999',
+    },
+    createdAt: ISO,
+  };
+}

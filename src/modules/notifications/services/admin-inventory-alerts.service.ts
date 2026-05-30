@@ -1,0 +1,611 @@
+import {
+  AuditActionSource,
+  AuditActorType,
+  AuditResourceType,
+  NotificationType,
+  UserRole,
+} from '@prisma/client';
+import { HttpStatus, Injectable } from '@nestjs/common';
+
+import { ErrorCodes } from '../../../common/constants/error-codes';
+import { AppException } from '../../../common/exceptions/app.exception';
+import { AuditService } from '../../audit/services/audit.service';
+import { AuthenticatedUserEntity } from '../../auth/entities/authenticated-user.entity';
+import {
+  AdminInventoryAlertDto,
+  AdminInventoryAlertKind,
+  AdminInventoryAlertStatus,
+} from '../dto/admin-inventory-alert.dto';
+import { AcknowledgeInventoryAlertDto } from '../dto/acknowledge-inventory-alert.dto';
+import { BulkAcknowledgeInventoryAlertsDto } from '../dto/bulk-acknowledge-inventory-alerts.dto';
+import { BulkAcknowledgeInventoryAlertsResponseDto } from '../dto/bulk-acknowledge-inventory-alerts-response.dto';
+import { BulkDismissInventoryAlertsDto } from '../dto/bulk-dismiss-inventory-alerts.dto';
+import { BulkDismissInventoryAlertsResponseDto } from '../dto/bulk-dismiss-inventory-alerts-response.dto';
+import { ListAdminInventoryAlertsQueryDto } from '../dto/list-admin-inventory-alerts-query.dto';
+import {
+  AdminInventoryAlertMetadata,
+  AdminInventoryAlertNotificationRecord,
+  readAdminInventoryAlertMetadata,
+} from '../entities/admin-inventory-alert-notification.entity';
+import { NotificationsRepository } from '../repositories/notifications.repository';
+
+const inventoryAlertAcknowledgementAction = 'inventory_alerts.acknowledged';
+const inventoryAlertResolutionAction = 'inventory_alerts.resolved';
+const inventoryAlertDismissalAction = 'inventory_alerts.dismissed';
+
+@Injectable()
+export class AdminInventoryAlertsService {
+  constructor(
+    private readonly notificationsRepository: NotificationsRepository,
+    private readonly auditService: AuditService,
+  ) {}
+
+  async listInventoryAlerts(
+    currentUser: AuthenticatedUserEntity,
+    query: ListAdminInventoryAlertsQueryDto,
+  ): Promise<AdminInventoryAlertDto[]> {
+    this.assertAdmin(currentUser);
+
+    const limit = query.limit ?? 20;
+    const fetchLimit = Math.min(Math.max(limit * 4, 100), 200);
+    const notifications =
+      await this.notificationsRepository.listRecentInventoryAlerts(fetchLimit);
+    const inventoryAlerts = notifications
+      .map((notification) => ({
+        notification,
+        metadata: readAdminInventoryAlertMetadata(notification),
+      }))
+      .filter(
+        (
+          candidate,
+        ): candidate is {
+          notification: AdminInventoryAlertNotificationRecord;
+          metadata: AdminInventoryAlertMetadata;
+        } => candidate.metadata !== null,
+      );
+    const acknowledgements =
+      await this.auditService.listInventoryAlertAcknowledgementLogs(
+        inventoryAlerts.map(({ notification }) => notification.id),
+      );
+    const latestAcknowledgementByNotificationId =
+      this.buildLatestLifecycleLogMap(acknowledgements);
+    const lifecycleLogs = await this.auditService.listInventoryAlertLifecycleLogs(
+      inventoryAlerts.map(({ notification }) => notification.id),
+    );
+    const latestLifecycleByNotificationId =
+      this.buildLatestLifecycleLogMap(lifecycleLogs);
+
+    return inventoryAlerts
+      .map(({ notification, metadata }) =>
+        this.toAdminInventoryAlertDto(
+          notification,
+          metadata,
+          latestAcknowledgementByNotificationId.get(notification.id) ?? null,
+          latestLifecycleByNotificationId.get(notification.id) ?? null,
+        ),
+      )
+      .filter((alert) => this.matchesQuery(alert, query))
+      .slice(0, limit);
+  }
+
+  async acknowledgeInventoryAlert(
+    currentUser: AuthenticatedUserEntity,
+    notificationId: string,
+    payload: AcknowledgeInventoryAlertDto,
+  ): Promise<AdminInventoryAlertDto> {
+    this.assertAdmin(currentUser);
+
+    const [resolvedAlert] = await this.findResolvedInventoryAlertsByIds([
+      notificationId,
+    ]);
+    const acknowledgements =
+      await this.auditService.listInventoryAlertAcknowledgementLogs([
+        resolvedAlert.notification.id,
+      ]);
+    const lifecycleLogs = await this.auditService.listInventoryAlertLifecycleLogs([
+      resolvedAlert.notification.id,
+    ]);
+    const currentLifecycleLog = lifecycleLogs[0] ?? null;
+    const currentStatus = this.resolveInventoryAlertStatus(currentLifecycleLog);
+
+    if (
+      currentStatus === AdminInventoryAlertStatus.RESOLVED ||
+      currentStatus === AdminInventoryAlertStatus.DISMISSED
+    ) {
+      return this.toAdminInventoryAlertDto(
+        resolvedAlert.notification,
+        resolvedAlert.metadata,
+        acknowledgements[0] ?? null,
+        currentLifecycleLog,
+      );
+    }
+
+    const acknowledgement =
+      acknowledgements[0] ??
+      (await this.logInventoryAlertAcknowledgement(
+        currentUser,
+        resolvedAlert.notification,
+        resolvedAlert.metadata,
+        payload.note,
+      ));
+
+    return this.toAdminInventoryAlertDto(
+      resolvedAlert.notification,
+      resolvedAlert.metadata,
+      acknowledgement,
+      acknowledgement,
+    );
+  }
+
+  async resolveInventoryAlert(
+    currentUser: AuthenticatedUserEntity,
+    notificationId: string,
+    payload: AcknowledgeInventoryAlertDto,
+  ): Promise<AdminInventoryAlertDto> {
+    this.assertAdmin(currentUser);
+
+    const [resolvedAlert] = await this.findResolvedInventoryAlertsByIds([
+      notificationId,
+    ]);
+    const acknowledgements =
+      await this.auditService.listInventoryAlertAcknowledgementLogs([
+        resolvedAlert.notification.id,
+      ]);
+    const lifecycleLogs = await this.auditService.listInventoryAlertLifecycleLogs([
+      resolvedAlert.notification.id,
+    ]);
+    const currentLifecycleLog = lifecycleLogs[0] ?? null;
+    const currentStatus = this.resolveInventoryAlertStatus(currentLifecycleLog);
+
+    if (currentStatus === AdminInventoryAlertStatus.DISMISSED) {
+      return this.toAdminInventoryAlertDto(
+        resolvedAlert.notification,
+        resolvedAlert.metadata,
+        acknowledgements[0] ?? null,
+        currentLifecycleLog,
+      );
+    }
+
+    const lifecycleLog =
+      currentStatus === AdminInventoryAlertStatus.RESOLVED
+        ? currentLifecycleLog
+        : await this.logInventoryAlertLifecycleAction(
+            currentUser,
+            resolvedAlert.notification,
+            resolvedAlert.metadata,
+            inventoryAlertResolutionAction,
+            payload.note,
+          );
+
+    return this.toAdminInventoryAlertDto(
+      resolvedAlert.notification,
+      resolvedAlert.metadata,
+      acknowledgements[0] ?? null,
+      lifecycleLog,
+    );
+  }
+
+  async bulkAcknowledgeInventoryAlerts(
+    currentUser: AuthenticatedUserEntity,
+    payload: BulkAcknowledgeInventoryAlertsDto,
+  ): Promise<BulkAcknowledgeInventoryAlertsResponseDto> {
+    this.assertAdmin(currentUser);
+
+    const notificationIds = this.normalizeNotificationIds(payload.notificationIds);
+    const resolvedAlerts = await this.findResolvedInventoryAlertsByIds(notificationIds);
+    const alertByNotificationId = new Map(
+      resolvedAlerts.map((resolvedAlert) => [
+        resolvedAlert.notification.id,
+        resolvedAlert,
+      ]),
+    );
+    const acknowledgements =
+      await this.auditService.listInventoryAlertAcknowledgementLogs(notificationIds);
+    const latestAcknowledgementByNotificationId =
+      this.buildLatestLifecycleLogMap(acknowledgements);
+    const lifecycleLogs = await this.auditService.listInventoryAlertLifecycleLogs(
+      notificationIds,
+    );
+    const latestLifecycleByNotificationId =
+      this.buildLatestLifecycleLogMap(lifecycleLogs);
+    let acknowledgedCount = 0;
+    const alerts: AdminInventoryAlertDto[] = [];
+
+    for (const notificationId of notificationIds) {
+      const resolvedAlert = alertByNotificationId.get(notificationId);
+
+      if (resolvedAlert === undefined) {
+        continue;
+      }
+
+      let acknowledgement =
+        latestAcknowledgementByNotificationId.get(notificationId) ?? null;
+      let lifecycleLog = latestLifecycleByNotificationId.get(notificationId) ?? null;
+      const currentStatus = this.resolveInventoryAlertStatus(lifecycleLog);
+
+      if (
+        acknowledgement === null &&
+        currentStatus !== AdminInventoryAlertStatus.RESOLVED &&
+        currentStatus !== AdminInventoryAlertStatus.DISMISSED
+      ) {
+        acknowledgement = await this.logInventoryAlertAcknowledgement(
+          currentUser,
+          resolvedAlert.notification,
+          resolvedAlert.metadata,
+          payload.note,
+        );
+        latestAcknowledgementByNotificationId.set(notificationId, acknowledgement);
+        lifecycleLog = acknowledgement;
+        latestLifecycleByNotificationId.set(notificationId, acknowledgement);
+        acknowledgedCount += 1;
+      }
+
+      alerts.push(
+        this.toAdminInventoryAlertDto(
+          resolvedAlert.notification,
+          resolvedAlert.metadata,
+          acknowledgement,
+          lifecycleLog,
+        ),
+      );
+    }
+
+    return {
+      acknowledgedCount,
+      alerts,
+    };
+  }
+
+  async bulkDismissInventoryAlerts(
+    currentUser: AuthenticatedUserEntity,
+    payload: BulkDismissInventoryAlertsDto,
+  ): Promise<BulkDismissInventoryAlertsResponseDto> {
+    this.assertAdmin(currentUser);
+
+    const notificationIds = this.normalizeNotificationIds(payload.notificationIds);
+    const resolvedAlerts = await this.findResolvedInventoryAlertsByIds(notificationIds);
+    const alertByNotificationId = new Map(
+      resolvedAlerts.map((resolvedAlert) => [
+        resolvedAlert.notification.id,
+        resolvedAlert,
+      ]),
+    );
+    const acknowledgements =
+      await this.auditService.listInventoryAlertAcknowledgementLogs(notificationIds);
+    const latestAcknowledgementByNotificationId =
+      this.buildLatestLifecycleLogMap(acknowledgements);
+    const lifecycleLogs = await this.auditService.listInventoryAlertLifecycleLogs(
+      notificationIds,
+    );
+    const latestLifecycleByNotificationId =
+      this.buildLatestLifecycleLogMap(lifecycleLogs);
+    let dismissedCount = 0;
+    const alerts: AdminInventoryAlertDto[] = [];
+
+    for (const notificationId of notificationIds) {
+      const resolvedAlert = alertByNotificationId.get(notificationId);
+
+      if (resolvedAlert === undefined) {
+        continue;
+      }
+
+      const acknowledgement =
+        latestAcknowledgementByNotificationId.get(notificationId) ?? null;
+      let lifecycleLog = latestLifecycleByNotificationId.get(notificationId) ?? null;
+      const currentStatus = this.resolveInventoryAlertStatus(lifecycleLog);
+
+      if (currentStatus !== AdminInventoryAlertStatus.DISMISSED) {
+        lifecycleLog = await this.logInventoryAlertLifecycleAction(
+          currentUser,
+          resolvedAlert.notification,
+          resolvedAlert.metadata,
+          inventoryAlertDismissalAction,
+          payload.note,
+        );
+        latestLifecycleByNotificationId.set(notificationId, lifecycleLog);
+        dismissedCount += 1;
+      }
+
+      alerts.push(
+        this.toAdminInventoryAlertDto(
+          resolvedAlert.notification,
+          resolvedAlert.metadata,
+          acknowledgement,
+          lifecycleLog,
+        ),
+      );
+    }
+
+    return {
+      dismissedCount,
+      alerts,
+    };
+  }
+
+  private assertAdmin(currentUser: AuthenticatedUserEntity): void {
+    if (currentUser.role === UserRole.ADMIN) {
+      return;
+    }
+
+    throw new AppException(
+      'You are not allowed to manage inventory alerts.',
+      HttpStatus.FORBIDDEN,
+      {
+        code: ErrorCodes.forbidden,
+      },
+    );
+  }
+
+  private matchesQuery(
+    alert: AdminInventoryAlertDto,
+    query: ListAdminInventoryAlertsQueryDto,
+  ): boolean {
+    if (query.branchId !== undefined && query.branchId.trim().length > 0) {
+      if (alert.branchId !== query.branchId.trim()) {
+        return false;
+      }
+    }
+
+    if (query.status !== undefined && query.status !== 'ALL') {
+      if (alert.status !== query.status) {
+        return false;
+      }
+    }
+
+    if (
+      query.merchantUserId !== undefined &&
+      query.merchantUserId.trim().length > 0 &&
+      alert.merchantUserId !== query.merchantUserId.trim()
+    ) {
+      return false;
+    }
+
+    if (query.alertKind !== undefined && query.alertKind !== 'ALL') {
+      if (alert.alertKind !== query.alertKind) {
+        return false;
+      }
+    }
+
+    if (query.resourceType !== undefined && query.resourceType !== 'ALL') {
+      if (alert.resourceType !== query.resourceType) {
+        return false;
+      }
+    }
+
+    if (query.attentionLevel !== undefined && query.attentionLevel !== 'ALL') {
+      if (alert.attentionLevel !== query.attentionLevel) {
+        return false;
+      }
+    }
+
+    if (query.keyword !== undefined && query.keyword.trim().length > 0) {
+      const keyword = query.keyword.trim().toLowerCase();
+      const haystacks = [
+        alert.title,
+        alert.body,
+        alert.resourceLabel,
+        alert.menuItemName,
+        alert.branchName,
+        alert.orderCode,
+        alert.merchantPhone,
+        alert.reasonCode,
+      ]
+        .filter((value): value is string => value !== null)
+        .map((value) => value.toLowerCase());
+
+      if (!haystacks.some((value) => value.includes(keyword))) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  private async findResolvedInventoryAlertsByIds(notificationIds: string[]) {
+    const notifications =
+      await this.notificationsRepository.findInventoryAlertsByIds(notificationIds);
+    const resolvedAlerts = notifications
+      .map((notification) => ({
+        notification,
+        metadata: readAdminInventoryAlertMetadata(notification),
+      }))
+      .filter(
+        (
+          candidate,
+        ): candidate is {
+          notification: AdminInventoryAlertNotificationRecord;
+          metadata: AdminInventoryAlertMetadata;
+        } => candidate.metadata !== null,
+      );
+
+    if (resolvedAlerts.length !== notificationIds.length) {
+      throw new AppException('Inventory alert was not found.', HttpStatus.NOT_FOUND, {
+        code: ErrorCodes.notFound,
+      });
+    }
+
+    return resolvedAlerts;
+  }
+
+  private buildLatestLifecycleLogMap(
+    logs: Awaited<
+      | ReturnType<AuditService['listInventoryAlertAcknowledgementLogs']>
+      | ReturnType<AuditService['listInventoryAlertLifecycleLogs']>
+    >,
+  ) {
+    const latestAcknowledgementByNotificationId = new Map<
+      string,
+      (typeof logs)[number]
+    >();
+
+    for (const acknowledgement of logs) {
+      if (!latestAcknowledgementByNotificationId.has(acknowledgement.resourceId)) {
+        latestAcknowledgementByNotificationId.set(
+          acknowledgement.resourceId,
+          acknowledgement,
+        );
+      }
+    }
+
+    return latestAcknowledgementByNotificationId;
+  }
+
+  private async logInventoryAlertLifecycleAction(
+    currentUser: AuthenticatedUserEntity,
+    notification: AdminInventoryAlertNotificationRecord,
+    metadata: AdminInventoryAlertMetadata,
+    action:
+      | typeof inventoryAlertAcknowledgementAction
+      | typeof inventoryAlertResolutionAction
+      | typeof inventoryAlertDismissalAction,
+    note: string | undefined,
+  ) {
+    return this.auditService.logAction({
+      actorType: AuditActorType.USER,
+      actorUserId: currentUser.userId,
+      actorRole: currentUser.role,
+      actionSource: AuditActionSource.API,
+      action,
+      resourceType: AuditResourceType.NOTIFICATION,
+      resourceId: notification.id,
+      resourceLabel: notification.title,
+      targetUserId: notification.user.id,
+      branchId: metadata.branchId,
+      metadataJson: {
+        note: this.normalizeOptionalString(note),
+        notificationType: NotificationType.SYSTEM_ALERT,
+        alertKind: metadata.alertKind,
+        attentionLevel: metadata.attentionLevel,
+        resourceType: metadata.resourceType,
+        resourceId: metadata.resourceId,
+        resourceLabel: metadata.resourceLabel,
+        restoredQuantity: metadata.restoredQuantity,
+        orderId: metadata.orderId,
+        orderCode: metadata.orderCode,
+        reasonCode: metadata.reasonCode,
+      },
+    });
+  }
+
+  private async logInventoryAlertAcknowledgement(
+    currentUser: AuthenticatedUserEntity,
+    notification: AdminInventoryAlertNotificationRecord,
+    metadata: AdminInventoryAlertMetadata,
+    note: string | undefined,
+  ) {
+    return this.logInventoryAlertLifecycleAction(
+      currentUser,
+      notification,
+      metadata,
+      inventoryAlertAcknowledgementAction,
+      note,
+    );
+  }
+
+  private resolveInventoryAlertStatus(
+    lifecycleLog: Awaited<
+      ReturnType<AuditService['listInventoryAlertLifecycleLogs']>
+    >[number] | null,
+  ): AdminInventoryAlertStatus {
+    switch (lifecycleLog?.action) {
+      case inventoryAlertDismissalAction:
+        return AdminInventoryAlertStatus.DISMISSED;
+      case inventoryAlertResolutionAction:
+        return AdminInventoryAlertStatus.RESOLVED;
+      case inventoryAlertAcknowledgementAction:
+        return AdminInventoryAlertStatus.ACKNOWLEDGED;
+      default:
+        return AdminInventoryAlertStatus.OPEN;
+    }
+  }
+
+  private toAdminInventoryAlertDto(
+    notification: AdminInventoryAlertNotificationRecord,
+    metadata: AdminInventoryAlertMetadata,
+    acknowledgement: Awaited<
+      ReturnType<AuditService['listInventoryAlertAcknowledgementLogs']>
+    >[number] | null,
+    lifecycleLog: Awaited<
+      ReturnType<AuditService['listInventoryAlertLifecycleLogs']>
+    >[number] | null,
+  ): AdminInventoryAlertDto {
+    return {
+      notificationId: notification.id,
+      type: notification.type,
+      title: notification.title,
+      body: notification.body,
+      navigationPath: notification.navigationPath ?? null,
+      merchantUserId: notification.user.id,
+      merchantRole: notification.user.role,
+      merchantPhone: notification.user.phone,
+      branchId: metadata.branchId,
+      branchName: metadata.branchName,
+      alertKind:
+        metadata.alertKind === 'COMPENSATION'
+          ? AdminInventoryAlertKind.COMPENSATION
+          : AdminInventoryAlertKind.ATTENTION,
+      resourceType: metadata.resourceType,
+      resourceId: metadata.resourceId,
+      resourceLabel: metadata.resourceLabel,
+      menuItemName: metadata.menuItemName,
+      attentionLevel: metadata.attentionLevel,
+      stockQuantity: metadata.stockQuantity,
+      lowStockThreshold: metadata.lowStockThreshold,
+      restoredQuantity: metadata.restoredQuantity,
+      orderId: metadata.orderId ?? notification.orderId ?? null,
+      orderCode: metadata.orderCode,
+      reasonCode: metadata.reasonCode,
+      merchantReadAt: notification.readAt?.toISOString() ?? null,
+      status: this.resolveInventoryAlertStatus(lifecycleLog),
+      acknowledgementNote: this.readMetadataString(acknowledgement?.metadata, 'note'),
+      acknowledgedAt: acknowledgement?.createdAt ?? null,
+      acknowledgedBy:
+        acknowledgement?.actorUser === null || acknowledgement?.actorUser === undefined
+          ? null
+          : {
+              userId: acknowledgement.actorUser.userId,
+              role: acknowledgement.actorUser.role,
+              phone: acknowledgement.actorUser.phone,
+            },
+      statusNote: this.readMetadataString(lifecycleLog?.metadata, 'note'),
+      statusChangedAt: lifecycleLog?.createdAt ?? null,
+      statusChangedBy:
+        lifecycleLog?.actorUser === null || lifecycleLog?.actorUser === undefined
+          ? null
+          : {
+              userId: lifecycleLog.actorUser.userId,
+              role: lifecycleLog.actorUser.role,
+              phone: lifecycleLog.actorUser.phone,
+            },
+      createdAt: notification.createdAt.toISOString(),
+    };
+  }
+
+  private readMetadataString(metadata: unknown, key: string): string | null {
+    if (metadata === null || typeof metadata !== 'object' || Array.isArray(metadata)) {
+      return null;
+    }
+
+    const value = (metadata as Record<string, unknown>)[key];
+
+    return typeof value === 'string' && value.trim().length > 0 ? value : null;
+  }
+
+  private normalizeOptionalString(value: string | undefined): string | null {
+    if (value === undefined) {
+      return null;
+    }
+
+    const normalized = value.trim();
+
+    return normalized.length === 0 ? null : normalized;
+  }
+
+  private normalizeNotificationIds(notificationIds: string[]): string[] {
+    const normalizedIds = notificationIds
+      .map((notificationId) => notificationId.trim())
+      .filter((notificationId) => notificationId.length > 0);
+
+    return [...new Set(normalizedIds)];
+  }
+}
