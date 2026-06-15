@@ -23,7 +23,14 @@ import { MessagingSocketAuthService } from '../services/messaging-socket-auth.se
 @WebSocketGateway({
   namespace: '/messaging',
   cors: {
-    origin: '*',
+    // Restrict to same origins as the HTTP layer via the APP_CORS_ORIGINS env var.
+    // Falls back to same-origin only in production.
+    origin: process.env.APP_CORS_ORIGINS
+      ? process.env.APP_CORS_ORIGINS.split(',').map((o) => o.trim())
+      : process.env.NODE_ENV === 'production'
+        ? false
+        : true,
+    credentials: true,
   },
 })
 export class MessagingGateway implements OnGatewayInit, OnGatewayConnection {

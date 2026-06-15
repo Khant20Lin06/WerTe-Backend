@@ -38,6 +38,9 @@ export const branchOwnershipInclude = Prisma.validator<Prisma.BranchInclude>()({
       },
     },
   },
+  staffAssignments: {
+    select: { staffId: true },
+  },
 });
 
 export type BranchOwnershipRecord = Prisma.BranchGetPayload<{

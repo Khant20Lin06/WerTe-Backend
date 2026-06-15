@@ -140,6 +140,7 @@ describe('OrderQueryService', () => {
 
     expect(repository.findMerchantOrderSummaries).toHaveBeenCalledWith(
       'merchant_1',
+      { branchId: undefined },
     );
     expect(result[0].availableActions).toEqual([
       'merchant_accept',

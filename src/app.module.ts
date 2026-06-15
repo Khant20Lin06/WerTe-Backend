@@ -1,11 +1,14 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 
 import appConfig from './config/app.config';
 import databaseConfig from './config/database.config';
+import fcmConfig from './config/fcm.config';
 import jwtConfig from './config/jwt.config';
 import redisConfig from './config/redis.config';
+import s3Config from './config/s3.config';
 import { envValidationSchema } from './config/env.validation';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -41,6 +44,8 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { AdminOpsModule } from './modules/admin-ops/admin-ops.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { StoreTypesModule } from './modules/store-types/store-types.module';
+import { UploadsModule } from './modules/uploads/uploads.module';
+import { StaffModule } from './modules/staff/staff.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { PoliciesGuard } from './common/guards/policies.guard';
@@ -49,9 +54,14 @@ import { PoliciesGuard } from './common/guards/policies.guard';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig, redisConfig, jwtConfig],
+      load: [appConfig, databaseConfig, redisConfig, jwtConfig, fcmConfig, s3Config],
       validationSchema: envValidationSchema,
     }),
+    ThrottlerModule.forRoot([
+      { name: 'short',  ttl: 1000,  limit: 10  },
+      { name: 'medium', ttl: 10000, limit: 50  },
+      { name: 'long',   ttl: 60000, limit: 200 },
+    ]),
     PrismaModule,
     RedisModule,
     BullmqModule,
@@ -84,10 +94,16 @@ import { PoliciesGuard } from './common/guards/policies.guard';
     AdminOpsModule,
     AuditModule,
     StoreTypesModule,
+    UploadsModule,
+    StaffModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,

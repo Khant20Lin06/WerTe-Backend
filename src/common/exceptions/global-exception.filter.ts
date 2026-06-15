@@ -131,10 +131,6 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           error: {
             code: ErrorCodes.databaseConstraintViolation,
             message: 'A unique database constraint was violated.',
-            details: {
-              prismaCode: exception.code,
-              target: exception.meta?.target,
-            },
           },
         };
       case 'P2003':
@@ -143,10 +139,6 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           error: {
             code: ErrorCodes.databaseConstraintViolation,
             message: 'A related database record is missing or invalid.',
-            details: {
-              prismaCode: exception.code,
-              fieldName: exception.meta?.field_name,
-            },
           },
         };
       case 'P2025':
@@ -155,10 +147,6 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           error: {
             code: ErrorCodes.databaseRecordNotFound,
             message: 'The requested database record was not found.',
-            details: {
-              prismaCode: exception.code,
-              cause: exception.meta?.cause,
-            },
           },
         };
       default:

@@ -59,7 +59,7 @@ describe('OrdersRepository', () => {
     const { prisma, repository } = makeRepository();
     (prisma.order.findMany as jest.Mock).mockResolvedValue([]);
 
-    await repository.findMerchantOrderSummaries('merchant_1', 5);
+    await repository.findMerchantOrderSummaries('merchant_1', { limit: 5 });
 
     expect(prisma.order.findMany).toHaveBeenCalledWith({
       where: {

@@ -1,5 +1,5 @@
 x-backend-env: &backend-env
-  NODE_ENV: production
+  NODE_ENV: development
   APP_HOST: 0.0.0.0
   APP_PORT: 3000
   APP_PREFIX: api/v1
@@ -31,7 +31,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres -d food_delivery']
+      test: [ 'CMD-SHELL', 'pg_isready -U postgres -d food_delivery' ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -45,7 +45,7 @@ services:
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
+      test: [ 'CMD', 'redis-cli', 'ping' ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -60,7 +60,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: ['npx', 'prisma', 'migrate', 'deploy']
+    command: [ 'npx', 'prisma', 'migrate', 'deploy' ]
     restart: 'no'
 
   app:
@@ -80,13 +80,7 @@ services:
     ports:
       - '3000:3000'
     healthcheck:
-      test:
-        [
-          'CMD',
-          'node',
-          '-e',
-          "fetch('http://127.0.0.1:3000/api/v1/health/live').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))",
-        ]
+      test: [ 'CMD', 'node', '-e', "fetch('http://127.0.0.1:3000/api/v1/health/live').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))" ]
       interval: 15s
       timeout: 5s
       retries: 5

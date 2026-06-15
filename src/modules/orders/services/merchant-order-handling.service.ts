@@ -83,6 +83,19 @@ export class MerchantOrderHandlingService {
     });
   }
 
+  markReadyCurrentMerchantOrder(
+    currentUser: AuthenticatedUserEntity,
+    input: MerchantOrderActionInput | (MerchantOrderActionDto & { orderId: string }),
+  ): Promise<OrderDetailEntity> {
+    return this.handleMerchantAction(currentUser, input, {
+      targetStatus: OrderStatus.READY,
+      defaultReasonCode: 'merchant_ready',
+      canTransition: (user, order) =>
+        this.orderPolicyService.canMarkReady(user, order),
+      conflictMessage: 'This order cannot be marked as ready by the merchant.',
+    });
+  }
+
   private async handleMerchantAction(
     currentUser: AuthenticatedUserEntity,
     input: MerchantOrderActionInput,
@@ -251,6 +264,8 @@ export class MerchantOrderHandlingService {
         return 'ORDER_REJECTED' as const;
       case OrderStatus.PREPARING:
         return 'ORDER_PREPARING' as const;
+      case OrderStatus.READY:
+        return 'ORDER_READY' as const;
       default:
         return 'ADMIN_INTERVENTION' as const;
     }

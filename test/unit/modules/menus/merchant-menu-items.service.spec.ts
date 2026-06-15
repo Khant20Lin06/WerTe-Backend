@@ -66,7 +66,9 @@ describe('MerchantMenuItemsService', () => {
         status: UserStatus.ACTIVE,
       },
     },
+    operatingHours: null,
     branchZones: [],
+    staffAssignments: [],
     ...overrides,
   });
 

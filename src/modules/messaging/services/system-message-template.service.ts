@@ -12,6 +12,8 @@ const defaultTemplateBodies: Record<SystemMessageCode, string> = {
     '{{merchantName}} rejected the order. {{note}}',
   ORDER_PREPARING:
     '{{merchantName}} is preparing the order now.',
+  ORDER_READY:
+    'Order {{orderCode}} is ready for rider pickup.',
   RIDER_ASSIGNED:
     '{{riderName}} was assigned to deliver the order.',
   RIDER_ACCEPTED:

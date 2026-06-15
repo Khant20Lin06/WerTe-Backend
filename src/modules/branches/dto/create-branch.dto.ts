@@ -5,11 +5,17 @@ import {
   ArrayUnique,
   IsArray,
   IsEnum,
+  IsIn,
   IsNumber,
   IsOptional,
   IsString,
   MaxLength,
 } from 'class-validator';
+
+import {
+  VALID_STORE_TYPE_CODES,
+  StoreTypeCode,
+} from '../../auth/dto/register-merchant.dto';
 
 export class CreateBranchDto {
   @ApiProperty({
@@ -71,13 +77,14 @@ export class CreateBranchDto {
   @ApiPropertyOptional({
     description:
       'Dynamic store type code for this branch. Defaults to the merchant store type when omitted.',
+    enum: VALID_STORE_TYPE_CODES,
     example: 'restaurant',
-    maxLength: 80,
   })
   @IsOptional()
-  @IsString()
-  @MaxLength(80)
-  storeType?: string;
+  @IsIn([...VALID_STORE_TYPE_CODES], {
+    message: `storeType must be one of: ${VALID_STORE_TYPE_CODES.join(', ')}`,
+  })
+  storeType?: StoreTypeCode;
 
   @ApiPropertyOptional({
     description: 'Branch operational status.',
@@ -98,4 +105,16 @@ export class CreateBranchDto {
   @ArrayUnique()
   @IsString({ each: true })
   zoneIds?: string[];
+
+  @ApiPropertyOptional({
+    description:
+      'Weekly operating hours. Keys are lowercase weekday names (mon–sun). ' +
+      'Each value has open (bool), openTime and closeTime as "HH:mm" strings.',
+    example: {
+      mon: { open: true, openTime: '09:00', closeTime: '22:00' },
+      sun: { open: false },
+    },
+  })
+  @IsOptional()
+  operatingHours?: Record<string, { open: boolean; openTime?: string; closeTime?: string }>;
 }

@@ -64,6 +64,8 @@ describe('MerchantCatalogReadService', () => {
     ],
     menuCategories: [],
     menuItems: [],
+    operatingHours: null,
+    staffAssignments: [],
     ...overrides,
   });
 

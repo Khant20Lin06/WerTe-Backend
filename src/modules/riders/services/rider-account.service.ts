@@ -1,4 +1,5 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
+import { RiderStatus } from '@prisma/client';
 
 import { ErrorCodes } from '../../../common/constants/error-codes';
 import { AppException } from '../../../common/exceptions/app.exception';
@@ -77,6 +78,22 @@ export class RiderAccountService {
         {
           code: ErrorCodes.notFound,
         },
+      );
+    }
+
+    if (rider.status === RiderStatus.PENDING) {
+      throw new AppException(
+        'Your rider account is pending admin approval.',
+        HttpStatus.FORBIDDEN,
+        { code: ErrorCodes.accountPending },
+      );
+    }
+
+    if (rider.status === RiderStatus.SUSPENDED) {
+      throw new AppException(
+        'Your rider account has been suspended.',
+        HttpStatus.FORBIDDEN,
+        { code: ErrorCodes.accountSuspended },
       );
     }
 

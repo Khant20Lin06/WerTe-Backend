@@ -43,7 +43,9 @@ export function setupSwagger(app: INestApplication) {
     )
     .build();
 
-  const document = SwaggerModule.createDocument(app, config);
+  const document = SwaggerModule.createDocument(app, config, {
+    ignoreGlobalPrefix: true,
+  });
   SwaggerModule.setup('docs', app, document, {
     customSiteTitle: 'Food Delivery API Docs',
     swaggerOptions: {

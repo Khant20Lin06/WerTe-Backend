@@ -137,14 +137,16 @@ export class OrdersRepository {
 
   findMerchantOrderSummaries(
     merchantId: string,
-    limit = 20,
+    options: { branchId?: string; limit?: number } = {},
     client: OrderDatabaseClient = this.prisma,
   ): Promise<OrderSummaryRecord[]> {
+    const { branchId, limit = 20 } = options;
     return client.order.findMany({
       where: {
         branch: {
           is: {
             merchantId,
+            ...(branchId ? { id: branchId } : {}),
           },
         },
       },

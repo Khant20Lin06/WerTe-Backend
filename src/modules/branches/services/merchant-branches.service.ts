@@ -1,5 +1,5 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { ZoneStatus } from '@prisma/client';
+import { Prisma, ZoneStatus } from '@prisma/client';
 
 import { ErrorCodes } from '../../../common/constants/error-codes';
 import { AppException } from '../../../common/exceptions/app.exception';
@@ -67,6 +67,9 @@ export class MerchantBranchesService {
           longitude: payload.longitude,
           storeType,
           status: payload.status,
+          ...(payload.operatingHours !== undefined
+            ? { operatingHours: (payload.operatingHours ?? Prisma.JsonNull) as any }
+            : {}),
         },
         tx,
       );
@@ -128,6 +131,9 @@ export class MerchantBranchesService {
             : {}),
           ...(storeType !== undefined ? { storeType } : {}),
           ...(payload.status !== undefined ? { status: payload.status } : {}),
+          ...(payload.operatingHours !== undefined
+            ? { operatingHours: (payload.operatingHours ?? Prisma.JsonNull) as any }
+            : {}),
         },
         tx,
       );

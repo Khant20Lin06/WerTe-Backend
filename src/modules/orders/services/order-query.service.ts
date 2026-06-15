@@ -60,10 +60,12 @@ export class OrderQueryService {
 
   async listMerchantOrders(
     currentUser: AuthenticatedUserEntity,
+    options: { branchId?: string } = {},
   ): Promise<OrderSummaryEntity[]> {
     const merchantId = this.requireMerchantId(currentUser);
     const orders = await this.ordersRepository.findMerchantOrderSummaries(
       merchantId,
+      { branchId: options.branchId },
     );
 
     return orders.map((order) =>

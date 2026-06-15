@@ -206,6 +206,19 @@ export class MerchantMenuCategoriesService {
     return toMenuCategoryDto(updatedCategory);
   }
 
+  async deleteBranchCategory(
+    currentUser: AuthenticatedUserEntity,
+    branchId: string,
+    categoryId: string,
+  ): Promise<void> {
+    const category = await this.resolveOwnedCategory(
+      currentUser,
+      branchId,
+      categoryId,
+    );
+    await this.menusRepository.deleteCategory(category.id);
+  }
+
   private buildScopeSnapshot(
     storeTypes: MenuCategoryOwnershipRecord['storeTypes'],
   ): Prisma.InputJsonValue {

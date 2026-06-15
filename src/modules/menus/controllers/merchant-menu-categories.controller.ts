@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import {
   ApiBearerAuth,
   ApiBody,
   ApiCreatedResponse,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -110,6 +111,25 @@ export class MerchantMenuCategoriesController {
       branchId,
       categoryId,
       body,
+    );
+  }
+
+  @ApiOperation({
+    operationId: 'deleteMerchantMenuCategory',
+    summary: 'Delete a menu category from a merchant-owned branch',
+  })
+  @ApiNoContentResponse({ description: 'Menu category deleted.' })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Delete(':categoryId')
+  delete(
+    @CurrentUser() currentUser: AuthenticatedUserEntity,
+    @Param('branchId') branchId: string,
+    @Param('categoryId') categoryId: string,
+  ) {
+    return this.merchantMenuCategoriesService.deleteBranchCategory(
+      currentUser,
+      branchId,
+      categoryId,
     );
   }
 }

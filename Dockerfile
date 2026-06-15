@@ -18,6 +18,8 @@ RUN npm prune --omit=dev
 
 FROM deps AS migrate
 
+RUN apk add --no-cache openssl
+
 COPY prisma ./prisma
 
 FROM node:20-alpine AS runner
@@ -26,7 +28,8 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-RUN addgroup -S nodejs && adduser -S nestjs -G nodejs
+RUN apk add --no-cache openssl && \
+    addgroup -S nodejs && adduser -S nestjs -G nodejs
 
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/package-lock.json ./package-lock.json

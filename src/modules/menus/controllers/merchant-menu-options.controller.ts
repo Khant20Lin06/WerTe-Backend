@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import {
   ApiBearerAuth,
   ApiBody,
   ApiCreatedResponse,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -129,6 +130,29 @@ export class MerchantMenuOptionsController {
       optionGroupId,
       optionId,
       body,
+    );
+  }
+
+  @ApiOperation({
+    operationId: 'deleteMerchantMenuItemOption',
+    summary: 'Delete an option from a merchant-owned option group',
+  })
+  @ApiNoContentResponse({ description: 'Option deleted.' })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Delete(':optionId')
+  delete(
+    @CurrentUser() currentUser: AuthenticatedUserEntity,
+    @Param('branchId') branchId: string,
+    @Param('itemId') itemId: string,
+    @Param('optionGroupId') optionGroupId: string,
+    @Param('optionId') optionId: string,
+  ) {
+    return this.merchantMenuOptionsService.deleteGroupOption(
+      currentUser,
+      branchId,
+      itemId,
+      optionGroupId,
+      optionId,
     );
   }
 

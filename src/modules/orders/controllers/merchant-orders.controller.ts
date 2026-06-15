@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import {
   ApiBearerAuth,
@@ -6,6 +6,7 @@ import {
   ApiParam,
   ApiOkResponse,
   ApiOperation,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 
@@ -32,14 +33,25 @@ export class MerchantOrdersController {
     operationId: 'listMerchantOrders',
     summary: 'List merchant orders',
   })
+  @ApiQuery({
+    name: 'branchId',
+    required: false,
+    description: 'Filter orders by branch. Omit to return orders for all branches.',
+    example: 'branch_1',
+  })
   @ApiOkResponse({
     description: 'Returns orders visible to the authenticated merchant scope.',
     type: OrderSummaryDto,
     isArray: true,
   })
   @Get()
-  async list(@CurrentUser() currentUser: AuthenticatedUserEntity) {
-    const orders = await this.orderQueryService.listMerchantOrders(currentUser);
+  async list(
+    @CurrentUser() currentUser: AuthenticatedUserEntity,
+    @Query('branchId') branchId?: string,
+  ) {
+    const orders = await this.orderQueryService.listMerchantOrders(currentUser, {
+      branchId,
+    });
 
     return orders.map((order) => toOrderSummaryDto(order));
   }
@@ -159,6 +171,40 @@ export class MerchantOrdersController {
   ) {
     const order =
       await this.merchantOrderHandlingService.markPreparingCurrentMerchantOrder(
+        currentUser,
+        {
+          orderId,
+          reasonCode: body?.reasonCode,
+          note: body?.note,
+        },
+      );
+
+    return toOrderDetailDto(order);
+  }
+
+  @ApiOperation({
+    operationId: 'markMerchantOrderReady',
+    summary: 'Mark a merchant order as ready for pickup',
+  })
+  @ApiParam({
+    name: 'orderId',
+    description: 'Order identifier visible to the authenticated merchant scope.',
+    example: 'order_1',
+  })
+  @ApiBody({ type: MerchantOrderActionDto, required: false })
+  @ApiOkResponse({
+    description:
+      'Marks a preparing merchant order as ready for rider pickup and returns the updated order detail snapshot.',
+    type: OrderDetailDto,
+  })
+  @Post(':orderId/ready')
+  async markReady(
+    @CurrentUser() currentUser: AuthenticatedUserEntity,
+    @Param('orderId') orderId: string,
+    @Body() body: MerchantOrderActionDto,
+  ) {
+    const order =
+      await this.merchantOrderHandlingService.markReadyCurrentMerchantOrder(
         currentUser,
         {
           orderId,

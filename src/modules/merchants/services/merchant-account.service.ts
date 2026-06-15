@@ -1,4 +1,5 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
+import { MerchantStatus } from '@prisma/client';
 
 import { ErrorCodes } from '../../../common/constants/error-codes';
 import { AppException } from '../../../common/exceptions/app.exception';
@@ -63,6 +64,22 @@ export class MerchantAccountService {
         {
           code: ErrorCodes.notFound,
         },
+      );
+    }
+
+    if (merchant.status === MerchantStatus.PENDING) {
+      throw new AppException(
+        'Your merchant account is pending admin approval.',
+        HttpStatus.FORBIDDEN,
+        { code: ErrorCodes.accountPending },
+      );
+    }
+
+    if (merchant.status === MerchantStatus.SUSPENDED) {
+      throw new AppException(
+        'Your merchant account has been suspended.',
+        HttpStatus.FORBIDDEN,
+        { code: ErrorCodes.accountSuspended },
       );
     }
 

@@ -45,6 +45,8 @@ function makeBranch(
       },
     },
     branchZones: [],
+    operatingHours: null,
+    staffAssignments: [],
     ...overrides,
   };
 }

@@ -7,6 +7,7 @@ export const OrderAvailableActions = {
   merchantAccept: 'merchant_accept',
   merchantReject: 'merchant_reject',
   markPreparing: 'mark_preparing',
+  markReady: 'mark_ready',
   riderAcceptAssignment: 'rider_accept_assignment',
   riderRejectAssignment: 'rider_reject_assignment',
   riderMarkPickedUp: 'rider_mark_picked_up',
@@ -48,6 +49,10 @@ export function computeOrderAvailableActions({
 
   if (orderPolicyService.canMarkPreparing(currentUser, order)) {
     actions.push(OrderAvailableActions.markPreparing);
+  }
+
+  if (orderPolicyService.canMarkReady(currentUser, order)) {
+    actions.push(OrderAvailableActions.markReady);
   }
 
   if (orderPolicyService.canRiderAcceptAssignment(currentUser, order)) {

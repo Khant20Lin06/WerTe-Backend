@@ -27,6 +27,14 @@ export const orderSummaryInclude = Prisma.validator<Prisma.OrderInclude>()({
       },
     },
   },
+  items: {
+    select: {
+      id: true,
+      nameSnapshot: true,
+      quantity: true,
+      unitPriceSnapshot: true,
+    },
+  },
   branch: {
     select: {
       id: true,
@@ -72,6 +80,13 @@ export const orderSummaryInclude = Prisma.validator<Prisma.OrderInclude>()({
 export type OrderSummaryRecord = Prisma.OrderGetPayload<{
   include: typeof orderSummaryInclude;
 }>;
+
+export class OrderSummaryItemEntity {
+  orderItemId!: string;
+  name!: string;
+  quantity!: number;
+  unitPrice!: string;
+}
 
 export class OrderSummaryCustomerEntity {
   customerProfileId!: string;
@@ -128,6 +143,7 @@ export class OrderSummaryEntity {
   placedAt!: string;
   updatedAt!: string;
   availableActions!: string[];
+  summaryItems?: OrderSummaryItemEntity[];
   customer!: OrderSummaryCustomerEntity;
   branch!: OrderSummaryBranchEntity;
   delivery!: OrderSummaryDeliveryEntity | null;
@@ -157,6 +173,12 @@ export function buildOrderSummary(order: OrderSummaryRecord): OrderSummaryEntity
     placedAt: order.placedAt.toISOString(),
     updatedAt: order.updatedAt.toISOString(),
     availableActions: [],
+    summaryItems: order.items.map((i) => ({
+      orderItemId: i.id,
+      name: i.nameSnapshot,
+      quantity: i.quantity,
+      unitPrice: i.unitPriceSnapshot.toString(),
+    })),
     customer: {
       customerProfileId: order.customerProfile.id,
       userId: order.customerProfile.user.id,

@@ -293,6 +293,23 @@ export class MerchantMenuOptionsService {
     };
   }
 
+  async deleteGroupOption(
+    currentUser: AuthenticatedUserEntity,
+    branchId: string,
+    itemId: string,
+    optionGroupId: string,
+    optionId: string,
+  ): Promise<void> {
+    const option = await this.resolveOwnedOption(
+      currentUser,
+      branchId,
+      itemId,
+      optionGroupId,
+      optionId,
+    );
+    await this.menusRepository.deleteOption(option.id);
+  }
+
   private async resolveOwnedOptionGroup(
     currentUser: AuthenticatedUserEntity,
     branchId: string,

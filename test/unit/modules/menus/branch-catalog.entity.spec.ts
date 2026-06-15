@@ -419,6 +419,8 @@ describe('buildBranchCatalog', () => {
         variantCombinations: [],
       },
     ],
+    operatingHours: null,
+    staffAssignments: [] as { staffId: string }[],
     ...overrides,
   });
 

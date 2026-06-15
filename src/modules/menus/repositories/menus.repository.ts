@@ -799,4 +799,44 @@ export class MenusRepository {
       });
     }
   }
+
+  deleteCategory(
+    id: string,
+    client: MenuDatabaseClient = this.prisma,
+  ): Promise<MenuCategoryOwnershipRecord> {
+    return client.menuCategory.delete({
+      where: { id },
+      include: menuCategoryOwnershipInclude,
+    });
+  }
+
+  deleteItem(
+    id: string,
+    client: MenuDatabaseClient = this.prisma,
+  ): Promise<MenuItemOwnershipRecord> {
+    return client.menuItem.delete({
+      where: { id },
+      include: menuItemOwnershipInclude,
+    });
+  }
+
+  deleteOptionGroup(
+    id: string,
+    client: MenuDatabaseClient = this.prisma,
+  ): Promise<ItemOptionGroupOwnershipRecord> {
+    return client.itemOptionGroup.delete({
+      where: { id },
+      include: itemOptionGroupOwnershipInclude,
+    });
+  }
+
+  deleteOption(
+    id: string,
+    client: MenuDatabaseClient = this.prisma,
+  ): Promise<ItemOptionOwnershipRecord> {
+    return client.itemOption.delete({
+      where: { id },
+      include: itemOptionOwnershipInclude,
+    });
+  }
 }

@@ -43,7 +43,9 @@ export function makeBranchOwnershipRecord(
         status: UserStatus.ACTIVE,
       },
     },
+    operatingHours: null,
     branchZones: [],
+    staffAssignments: [] as { staffId: string }[],
     ...overrides,
   };
 }

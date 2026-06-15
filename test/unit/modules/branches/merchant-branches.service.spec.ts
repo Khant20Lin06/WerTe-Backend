@@ -81,6 +81,7 @@ describe('MerchantBranchesService', () => {
         status: UserStatus.ACTIVE,
       },
     },
+    operatingHours: null,
     branchZones: [
       {
         zoneId: 'zone_1',
@@ -92,6 +93,7 @@ describe('MerchantBranchesService', () => {
         },
       },
     ],
+    staffAssignments: [],
     ...overrides,
   });
 

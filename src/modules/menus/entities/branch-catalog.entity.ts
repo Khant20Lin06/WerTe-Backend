@@ -166,6 +166,9 @@ export const branchCatalogInclude = Prisma.validator<Prisma.BranchInclude>()({
       },
     },
   },
+  staffAssignments: {
+    select: { staffId: true },
+  },
 });
 
 export type BranchCatalogRecord = Prisma.BranchGetPayload<{

@@ -84,6 +84,8 @@ describe('CustomerCatalogReadService', () => {
     ],
     menuCategories: [],
     menuItems: [],
+    operatingHours: null,
+    staffAssignments: [],
     ...overrides,
   });
 

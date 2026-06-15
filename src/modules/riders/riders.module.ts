@@ -1,11 +1,13 @@
 import { Module } from '@nestjs/common';
 
 import { DeliveriesModule } from '../deliveries/deliveries.module';
+import { AdminRidersController } from './controllers/admin-riders.controller';
 import { RiderAvailabilityController } from './controllers/rider-availability.controller';
 import { RiderLocationController } from './controllers/rider-location.controller';
 import { RiderProfileController } from './controllers/rider-profile.controller';
 import { RiderPolicyService } from './policies/rider-policy.service';
 import { RidersRepository } from './repositories/riders.repository';
+import { AdminRiderManagementService } from './services/admin-rider-management.service';
 import { RiderAccountService } from './services/rider-account.service';
 import { RiderAvailabilityService } from './services/rider-availability.service';
 import { RiderLocationService } from './services/rider-location.service';
@@ -17,6 +19,7 @@ import { RidersService } from './services/riders.service';
     RiderProfileController,
     RiderAvailabilityController,
     RiderLocationController,
+    AdminRidersController,
   ],
   providers: [
     RidersRepository,
@@ -25,6 +28,7 @@ import { RidersService } from './services/riders.service';
     RiderAvailabilityService,
     RiderLocationService,
     RiderPolicyService,
+    AdminRiderManagementService,
   ],
   exports: [
     RidersService,

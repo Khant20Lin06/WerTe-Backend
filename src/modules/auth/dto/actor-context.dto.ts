@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { UserRole, UserStatus } from '@prisma/client';
+import { MerchantStaffRole, MerchantStatus, RiderStatus, StaffStatus, UserRole, UserStatus } from '@prisma/client';
 
 export class ActorContextDto {
   @ApiProperty({
@@ -41,8 +41,55 @@ export class ActorContextDto {
   riderId?: string;
 
   @ApiPropertyOptional({
+    description: 'Rider onboarding status. Present only for RIDER actors.',
+    enum: RiderStatus,
+    example: RiderStatus.PENDING,
+  })
+  riderStatus?: RiderStatus;
+
+  @ApiPropertyOptional({
     description: 'Merchant identifier when the actor is a merchant user.',
     example: 'merchant_1',
   })
   merchantId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Merchant onboarding status. Present only for MERCHANT actors.',
+    enum: MerchantStatus,
+    example: MerchantStatus.PENDING,
+  })
+  merchantStatus?: MerchantStatus;
+
+  @ApiPropertyOptional({
+    description: 'Staff member identifier. Present only for MERCHANT_STAFF actors.',
+    example: 'staff_1',
+  })
+  staffMemberId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Staff role. Present only for MERCHANT_STAFF actors.',
+    enum: MerchantStaffRole,
+    example: MerchantStaffRole.CASHIER,
+  })
+  staffRole?: MerchantStaffRole;
+
+  @ApiPropertyOptional({
+    description: 'Staff account status. Present only for MERCHANT_STAFF actors.',
+    enum: StaffStatus,
+    example: StaffStatus.ACTIVE,
+  })
+  staffStatus?: StaffStatus;
+
+  @ApiPropertyOptional({
+    description: 'Branch IDs this staff member is assigned to.',
+    type: [String],
+    example: ['branch_1', 'branch_2'],
+  })
+  staffBranchIds?: string[];
+
+  @ApiPropertyOptional({
+    description: 'Merchant identifier for staff members.',
+    example: 'merchant_1',
+  })
+  staffMerchantId?: string;
 }

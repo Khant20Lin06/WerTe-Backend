@@ -6,9 +6,18 @@ import { promotionSelect, PromotionRecord } from '../entities/promotion.entity';
 
 type PromotionsDatabaseClient = PrismaService | Prisma.TransactionClient;
 
+export type PromotionWithCount = PromotionRecord & { _count: { orders: number } };
+
 @Injectable()
 export class PromotionsRepository {
   constructor(private readonly prisma: PrismaService) {}
+
+  findAll(): Promise<PromotionWithCount[]> {
+    return this.prisma.promotion.findMany({
+      select: { ...promotionSelect, _count: { select: { orders: true } } },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    }) as Promise<PromotionWithCount[]>;
+  }
 
   listBranchPromotions(
     branchId: string,

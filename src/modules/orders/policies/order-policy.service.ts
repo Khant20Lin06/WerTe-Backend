@@ -16,12 +16,14 @@ const CUSTOMER_CANCELLABLE_STATUSES = new Set<OrderStatus>([
   OrderStatus.PLACED,
   OrderStatus.MERCHANT_ACCEPTED,
   OrderStatus.PREPARING,
+  OrderStatus.READY,
 ]);
 
 const ADMIN_CANCELLABLE_STATUSES = new Set<OrderStatus>([
   OrderStatus.PLACED,
   OrderStatus.MERCHANT_ACCEPTED,
   OrderStatus.PREPARING,
+  OrderStatus.READY,
   OrderStatus.RIDER_ASSIGNED,
   OrderStatus.RIDER_ACCEPTED,
   OrderStatus.PICKED_UP,
@@ -103,6 +105,16 @@ export class OrderPolicyService {
     );
   }
 
+  canMarkReady(
+    currentUser: AuthenticatedUserEntity,
+    order: OrderSummaryEntity,
+  ): boolean {
+    return (
+      hasMerchantOrderAccess({ currentUser, order }) &&
+      order.status === OrderStatus.PREPARING
+    );
+  }
+
   canRiderAcceptAssignment(
     currentUser: AuthenticatedUserEntity,
     order: OrderSummaryEntity,
@@ -173,7 +185,8 @@ export class OrderPolicyService {
   ): boolean {
     return (
       this.canViewAdminOrders(currentUser) &&
-      order.status === OrderStatus.PREPARING
+      (order.status === OrderStatus.PREPARING ||
+        order.status === OrderStatus.READY)
     );
   }
 

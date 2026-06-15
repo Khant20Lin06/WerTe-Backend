@@ -1,8 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import { DevicePlatform, Prisma } from '@prisma/client';
+import {
+  DevicePlatform,
+  MerchantStatus,
+  Prisma,
+  RiderStatus,
+  UserRole,
+  UserStatus,
+} from '@prisma/client';
 
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import {
+  UserIdentityRecord,
   userIdentityInclude,
 } from '../../users/entities/actor-context.entity';
 
@@ -33,6 +41,29 @@ type RegisterPushTokenParams = {
   token: string;
 };
 
+type CreateCustomerAccountParams = {
+  phone: string;
+  passwordHash: string;
+  fullName?: string | null;
+  avatarUrl?: string | null;
+};
+
+type CreateMerchantAccountParams = {
+  phone: string;
+  passwordHash: string;
+  name: string;
+  supportPhone?: string | null;
+  storeType: string;
+};
+
+type CreateRiderAccountParams = {
+  phone: string;
+  passwordHash: string;
+  displayName: string;
+  vehicleType: string;
+  currentTownship?: string | null;
+};
+
 @Injectable()
 export class AuthRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -43,6 +74,76 @@ export class AuthRepository {
       data: {
         lastLoginAt: new Date(),
       },
+    });
+  }
+
+  createCustomerAccount(
+    params: CreateCustomerAccountParams,
+  ): Promise<UserIdentityRecord> {
+    return this.prisma.user.create({
+      data: {
+        phone: params.phone,
+        passwordHash: params.passwordHash,
+        role: UserRole.CUSTOMER,
+        status: UserStatus.ACTIVE,
+        customerProfile: {
+          create: {
+            fullName: params.fullName ?? null,
+            avatarUrl: params.avatarUrl ?? null,
+          },
+        },
+      },
+      include: userIdentityInclude,
+    });
+  }
+
+  createMerchantAccount(
+    params: CreateMerchantAccountParams,
+  ): Promise<UserIdentityRecord> {
+    return this.prisma.user.create({
+      data: {
+        phone: params.phone,
+        passwordHash: params.passwordHash,
+        role: UserRole.MERCHANT,
+        status: UserStatus.ACTIVE,
+        merchantProfile: {
+          create: {
+            name: params.name,
+            supportPhone: params.supportPhone ?? null,
+            storeType: params.storeType,
+            status: MerchantStatus.PENDING,
+          },
+        },
+      },
+      include: userIdentityInclude,
+    });
+  }
+
+  createRiderAccount(
+    params: CreateRiderAccountParams,
+  ): Promise<UserIdentityRecord> {
+    return this.prisma.user.create({
+      data: {
+        phone: params.phone,
+        passwordHash: params.passwordHash,
+        role: UserRole.RIDER,
+        status: UserStatus.ACTIVE,
+        riderProfile: {
+          create: {
+            displayName: params.displayName,
+            vehicleType: params.vehicleType,
+            currentTownship: params.currentTownship ?? null,
+            status: RiderStatus.PENDING,
+            availability: {
+              create: {
+                isOnline: false,
+                isAvailable: false,
+              },
+            },
+          },
+        },
+      },
+      include: userIdentityInclude,
     });
   }
 

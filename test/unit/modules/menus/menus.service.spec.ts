@@ -360,6 +360,8 @@ describe('MenusService', () => {
           variantCombinations: [],
         },
       ],
+      operatingHours: null,
+      staffAssignments: [],
     };
 
     const catalog = service.buildBranchCatalog(branchCatalog, {

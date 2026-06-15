@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 import * as cookieParser from 'cookie-parser';
+import * as compression from 'compression';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { INestApplication } from '@nestjs/common';
@@ -34,6 +35,8 @@ export async function configureApp(
   const appPrefix = configService.getOrThrow<string>('app.prefix');
   const corsOrigins = configService.get<string[]>('app.corsOrigins') ?? [];
   const swaggerEnabled = configService.get<boolean>('app.swaggerEnabled') ?? true;
+  const environment = configService.get<string>('app.environment') ?? 'development';
+  const isProduction = environment === 'production';
 
   app.useLogger(logger);
   if (options?.enableShutdownHooks ?? true) {
@@ -44,15 +47,25 @@ export async function configureApp(
   );
   app.use(helmet());
   app.use(cookieParser());
+  app.use(compression());
+
+  // In production, require explicit CORS origins — never reflect all origins.
+  const corsOriginPolicy = corsOrigins.length > 0
+    ? corsOrigins
+    : isProduction
+      ? false
+      : true;
+
   app.enableCors({
-    origin: corsOrigins.length > 0 ? corsOrigins : true,
+    origin: corsOriginPolicy,
     credentials: true,
   });
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       transform: true,
-      forbidUnknownValues: false,
+      forbidUnknownValues: true,
       forbidNonWhitelisted: true,
     }),
   );
@@ -64,7 +77,9 @@ export async function configureApp(
   );
   app.setGlobalPrefix(appPrefix);
 
-  if (swaggerEnabled) {
+  // Swagger is disabled in production unless explicitly enabled.
+  const shouldEnableSwagger = swaggerEnabled && !isProduction;
+  if (shouldEnableSwagger) {
     setupSwagger(app);
   }
 

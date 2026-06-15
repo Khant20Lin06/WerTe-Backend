@@ -71,6 +71,8 @@ describe('BranchPolicyService', () => {
         },
       },
     ],
+    operatingHours: null,
+    staffAssignments: [] as { staffId: string }[],
   };
 
   it('allows the owning merchant user to manage merchant context', () => {

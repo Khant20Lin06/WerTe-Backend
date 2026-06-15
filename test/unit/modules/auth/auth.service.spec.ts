@@ -37,6 +37,26 @@ describe('AuthService', () => {
     status: UserStatus.ACTIVE,
   };
 
+  const merchantUserRecord = {
+    ...userRecord,
+    id: 'usr_merchant_1',
+    phone: '+959123456780',
+    role: UserRole.MERCHANT,
+    merchantProfile: {
+      id: 'merchant_1',
+    },
+  };
+
+  const riderUserRecord = {
+    ...userRecord,
+    id: 'usr_rider_1',
+    phone: '+959777777777',
+    role: UserRole.RIDER,
+    riderProfile: {
+      id: 'rider_1',
+    },
+  };
+
   const configService = {
     getOrThrow: jest.fn((key: string) => {
       switch (key) {
@@ -190,6 +210,182 @@ describe('AuthService', () => {
       sessionId: expect.any(String),
       userId: 'usr_1',
       actorContext,
+    });
+  });
+
+  it('registers a customer account and returns a token pair', async () => {
+    const registeredUser = {
+      ...userRecord,
+      customerProfile: {
+        id: 'cust_prof_1',
+      },
+    };
+    const usersService = {
+      findByPhone: jest.fn().mockResolvedValue(null),
+      buildActorContext: jest.fn().mockReturnValue(actorContext),
+    } as unknown as UsersService;
+    const authRepository = {
+      createCustomerAccount: jest.fn().mockResolvedValue(registeredUser),
+      createSession: jest.fn().mockResolvedValue(undefined),
+      touchLastLogin: jest.fn().mockResolvedValue(undefined),
+    } as unknown as AuthRepository;
+    const passwordService = {
+      hash: jest.fn().mockResolvedValue('hashed-password'),
+    } as unknown as PasswordService;
+    const service = new AuthService(
+      configService,
+      jwtService,
+      usersService,
+      authRepository,
+      passwordService,
+    );
+
+    const result = await service.registerCustomer(
+      {
+        phone: '09123456789',
+        password: 'Customer@1234',
+        fullName: 'Mg Mg',
+      },
+      {
+        deviceId: 'web-1',
+      },
+    );
+
+    expect(passwordService.hash).toHaveBeenCalledWith('Customer@1234');
+    expect(authRepository.createCustomerAccount).toHaveBeenCalledWith({
+      phone: '09123456789',
+      passwordHash: 'hashed-password',
+      fullName: 'Mg Mg',
+      avatarUrl: null,
+    });
+    expect(authRepository.createSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'usr_1',
+        deviceId: 'web-1',
+      }),
+    );
+    expect(result).toMatchObject({
+      accessToken: expect.stringMatching(/^access-token-usr_1-/),
+      refreshToken: expect.stringMatching(/^refresh-token-usr_1-/),
+      userId: 'usr_1',
+      actorContext,
+    });
+  });
+
+  it('registers a merchant account with normalized store type', async () => {
+    const merchantActorContext = {
+      userId: 'usr_merchant_1',
+      phone: '+959123456780',
+      role: UserRole.MERCHANT,
+      status: UserStatus.ACTIVE,
+      merchantId: 'merchant_1',
+    };
+    const usersService = {
+      findByPhone: jest.fn().mockResolvedValue(null),
+      buildActorContext: jest.fn().mockReturnValue(merchantActorContext),
+    } as unknown as UsersService;
+    const authRepository = {
+      createMerchantAccount: jest.fn().mockResolvedValue(merchantUserRecord),
+      createSession: jest.fn().mockResolvedValue(undefined),
+      touchLastLogin: jest.fn().mockResolvedValue(undefined),
+    } as unknown as AuthRepository;
+    const passwordService = {
+      hash: jest.fn().mockResolvedValue('hashed-password'),
+    } as unknown as PasswordService;
+    const service = new AuthService(
+      configService,
+      jwtService,
+      usersService,
+      authRepository,
+      passwordService,
+    );
+
+    const result = await service.registerMerchant({
+      phone: '+959123456780',
+      password: 'Merchant@1234',
+      name: 'Tea House',
+      supportPhone: '+95942000000',
+      storeType: ' Grocery ' as 'grocery',
+    });
+
+    expect(authRepository.createMerchantAccount).toHaveBeenCalledWith({
+      phone: '+959123456780',
+      passwordHash: 'hashed-password',
+      name: 'Tea House',
+      supportPhone: '+95942000000',
+      storeType: 'grocery',
+    });
+    expect(result.actorContext).toEqual(merchantActorContext);
+  });
+
+  it('registers a rider account and returns rider actor context', async () => {
+    const riderActorContext = {
+      userId: 'usr_rider_1',
+      phone: '+959777777777',
+      role: UserRole.RIDER,
+      status: UserStatus.ACTIVE,
+      riderId: 'rider_1',
+    };
+    const usersService = {
+      findByPhone: jest.fn().mockResolvedValue(null),
+      buildActorContext: jest.fn().mockReturnValue(riderActorContext),
+    } as unknown as UsersService;
+    const authRepository = {
+      createRiderAccount: jest.fn().mockResolvedValue(riderUserRecord),
+      createSession: jest.fn().mockResolvedValue(undefined),
+      touchLastLogin: jest.fn().mockResolvedValue(undefined),
+    } as unknown as AuthRepository;
+    const passwordService = {
+      hash: jest.fn().mockResolvedValue('hashed-password'),
+    } as unknown as PasswordService;
+    const service = new AuthService(
+      configService,
+      jwtService,
+      usersService,
+      authRepository,
+      passwordService,
+    );
+
+    const result = await service.registerRider({
+      phone: '+959777777777',
+      password: 'Rider@1234',
+      displayName: 'Ko Aung',
+      vehicleType: 'bike',
+      currentTownship: 'Kamaryut',
+    });
+
+    expect(authRepository.createRiderAccount).toHaveBeenCalledWith({
+      phone: '+959777777777',
+      passwordHash: 'hashed-password',
+      displayName: 'Ko Aung',
+      vehicleType: 'bike',
+      currentTownship: 'Kamaryut',
+    });
+    expect(result.actorContext).toEqual(riderActorContext);
+  });
+
+  it('rejects registration when phone already exists', async () => {
+    const usersService = {
+      findByPhone: jest.fn().mockResolvedValue(userRecord),
+    } as unknown as UsersService;
+    const service = new AuthService(
+      configService,
+      jwtService,
+      usersService,
+      {} as AuthRepository,
+      {} as PasswordService,
+    );
+
+    await expect(
+      service.registerCustomer({
+        phone: '09123456789',
+        password: 'Customer@1234',
+      }),
+    ).rejects.toMatchObject({
+      status: HttpStatus.CONFLICT,
+      response: expect.objectContaining({
+        code: ErrorCodes.conflict,
+      }),
     });
   });
 

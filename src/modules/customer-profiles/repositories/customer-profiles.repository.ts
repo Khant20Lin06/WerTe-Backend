@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, UserStatus } from '@prisma/client';
 
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import {
@@ -22,6 +22,31 @@ export class CustomerProfilesRepository {
     return this.prisma.customerProfile.findUnique({
       where: { userId },
       include: customerProfileOwnershipInclude,
+    });
+  }
+
+  findAll(opts: {
+    status?: UserStatus;
+    search?: string;
+  }): Promise<CustomerProfileOwnershipRecord[]> {
+    const where: Prisma.CustomerProfileWhereInput = {};
+
+    if (opts.status) {
+      where.user = { status: opts.status };
+    }
+
+    if (opts.search) {
+      const q = opts.search.trim();
+      where.OR = [
+        { fullName: { contains: q, mode: 'insensitive' } },
+        { user: { phone: { contains: q, mode: 'insensitive' } } },
+      ];
+    }
+
+    return this.prisma.customerProfile.findMany({
+      where,
+      include: customerProfileOwnershipInclude,
+      orderBy: { createdAt: 'desc' },
     });
   }
 

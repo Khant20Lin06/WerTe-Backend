@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Post, Req } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -16,7 +17,10 @@ import { LoginResponseDto } from '../dto/login-response.dto';
 import { LogoutDto } from '../dto/logout.dto';
 import { LogoutResponseDto } from '../dto/logout-response.dto';
 import { PushTokenResponseDto } from '../dto/push-token-response.dto';
+import { RegisterCustomerDto } from '../dto/register-customer.dto';
+import { RegisterMerchantDto } from '../dto/register-merchant.dto';
 import { RegisterPushTokenDto } from '../dto/register-push-token.dto';
+import { RegisterRiderDto } from '../dto/register-rider.dto';
 import { RefreshTokenDto } from '../dto/refresh-token.dto';
 import { UnregisterPushTokenResponseDto } from '../dto/unregister-push-token-response.dto';
 import { AuthenticatedUserEntity } from '../entities/authenticated-user.entity';
@@ -37,10 +41,71 @@ export class AuthController {
       'Returns access token, refresh token, and actor context for the authenticated user.',
     type: LoginResponseDto,
   })
+  @Throttle({ short: { ttl: 60000, limit: 5 }, medium: { ttl: 900000, limit: 20 } })
   @Public()
   @Post('login')
   login(@Body() body: LoginDto, @Req() request: Request) {
     return this.authService.login(body, this.buildSessionMetadata(request));
+  }
+
+  @ApiOperation({
+    operationId: 'registerCustomer',
+    summary: 'Register a customer account and issue tokens',
+  })
+  @ApiBody({ type: RegisterCustomerDto })
+  @ApiOkResponse({
+    description:
+      'Creates a customer user/profile and returns a token pair for the new account.',
+    type: LoginResponseDto,
+  })
+  @Throttle({ short: { ttl: 60000, limit: 5 }, medium: { ttl: 900000, limit: 20 } })
+  @Public()
+  @Post('register/customer')
+  registerCustomer(@Body() body: RegisterCustomerDto, @Req() request: Request) {
+    return this.authService.registerCustomer(
+      body,
+      this.buildSessionMetadata(request),
+    );
+  }
+
+  @ApiOperation({
+    operationId: 'registerMerchant',
+    summary: 'Register a merchant account and issue tokens',
+  })
+  @ApiBody({ type: RegisterMerchantDto })
+  @ApiOkResponse({
+    description:
+      'Creates a merchant user/profile in pending onboarding state and returns a token pair.',
+    type: LoginResponseDto,
+  })
+  @Throttle({ short: { ttl: 60000, limit: 5 }, medium: { ttl: 900000, limit: 20 } })
+  @Public()
+  @Post('register/merchant')
+  registerMerchant(@Body() body: RegisterMerchantDto, @Req() request: Request) {
+    return this.authService.registerMerchant(
+      body,
+      this.buildSessionMetadata(request),
+    );
+  }
+
+  @ApiOperation({
+    operationId: 'registerRider',
+    summary: 'Register a rider account and issue tokens',
+  })
+  @ApiBody({ type: RegisterRiderDto })
+  @ApiOkResponse({
+    description:
+      'Creates a rider user/profile in pending onboarding state and returns a token pair.',
+    type: LoginResponseDto,
+  })
+  @Throttle({ short: { ttl: 60000, limit: 5 }, medium: { ttl: 900000, limit: 20 } })
+  @Public()
+  @Post('register/rider')
+  registerRider(@Body() body: RegisterRiderDto, @Req() request: Request) {
+    return this.authService.registerRider(
+      body,
+      this.buildSessionMetadata(request),
+    );
   }
 
   @ApiOperation({

@@ -4,7 +4,30 @@ import {
   AppliedPromotionDto,
   toAppliedPromotionDto,
 } from '../../promotions/dto/applied-promotion.dto';
-import { OrderSummaryDeliveryEntity, OrderSummaryEntity } from '../entities/order-summary.entity';
+import { OrderSummaryDeliveryEntity, OrderSummaryEntity, OrderSummaryItemEntity } from '../entities/order-summary.entity';
+
+class OrderSummaryItemDto {
+  @ApiProperty({ example: 'item_1' })
+  orderItemId!: string;
+
+  @ApiProperty({ example: 'Mohinga' })
+  name!: string;
+
+  @ApiProperty({ example: 2 })
+  quantity!: number;
+
+  @ApiProperty({ example: '3000' })
+  unitPrice!: string;
+}
+
+function toOrderSummaryItemDto(item: OrderSummaryItemEntity): OrderSummaryItemDto {
+  return {
+    orderItemId: item.orderItemId,
+    name: item.name,
+    quantity: item.quantity,
+    unitPrice: item.unitPrice,
+  };
+}
 
 class OrderSummaryCustomerDto {
   @ApiProperty({ example: 'cust_prof_1' })
@@ -168,6 +191,9 @@ export class OrderSummaryDto {
   @ApiProperty({ type: () => String, isArray: true, example: ['cancel'] })
   availableActions!: string[];
 
+  @ApiPropertyOptional({ type: () => OrderSummaryItemDto, isArray: true })
+  summaryItems?: OrderSummaryItemDto[];
+
   @ApiProperty({ type: () => OrderSummaryCustomerDto })
   customer!: OrderSummaryCustomerDto;
 
@@ -214,6 +240,7 @@ export function toOrderSummaryDto(order: OrderSummaryEntity): OrderSummaryDto {
       merchantName: order.branch.merchantName,
       merchantStatus: order.branch.merchantStatus,
     },
+    summaryItems: (order.summaryItems ?? []).map(toOrderSummaryItemDto),
     delivery: toOrderSummaryDeliveryDto(order.delivery),
   };
 }

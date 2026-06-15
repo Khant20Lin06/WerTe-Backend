@@ -8,7 +8,10 @@ import { AppException } from '../../../common/exceptions/app.exception';
 import { UserIdentityRecord } from '../../users/entities/actor-context.entity';
 import { UsersService } from '../../users/services/users.service';
 import { LoginDto } from '../dto/login.dto';
+import { RegisterCustomerDto } from '../dto/register-customer.dto';
+import { RegisterMerchantDto } from '../dto/register-merchant.dto';
 import { RegisterPushTokenDto } from '../dto/register-push-token.dto';
+import { RegisterRiderDto } from '../dto/register-rider.dto';
 import { AuthenticatedUserEntity } from '../entities/authenticated-user.entity';
 import {
   AuthTokenPayloadEntity,
@@ -77,6 +80,59 @@ export class AuthService {
       userId: user.id,
       actorContext,
     };
+  }
+
+  async registerCustomer(
+    payload: RegisterCustomerDto,
+    metadata: SessionRequestMetadata = {},
+  ) {
+    const phone = this.normalizePhone(payload.phone);
+    await this.assertPhoneIsAvailable(phone);
+    const passwordHash = await this.passwordService.hash(payload.password);
+    const user = await this.authRepository.createCustomerAccount({
+      phone,
+      passwordHash,
+      fullName: this.normalizeOptionalString(payload.fullName),
+      avatarUrl: this.normalizeOptionalString(payload.avatarUrl),
+    });
+
+    return this.issueRegistrationSession(user, metadata);
+  }
+
+  async registerMerchant(
+    payload: RegisterMerchantDto,
+    metadata: SessionRequestMetadata = {},
+  ) {
+    const phone = this.normalizePhone(payload.phone);
+    await this.assertPhoneIsAvailable(phone);
+    const passwordHash = await this.passwordService.hash(payload.password);
+    const user = await this.authRepository.createMerchantAccount({
+      phone,
+      passwordHash,
+      name: this.normalizeRequiredString(payload.name),
+      supportPhone: this.normalizeOptionalString(payload.supportPhone),
+      storeType: this.normalizeStoreTypeCode(payload.storeType),
+    });
+
+    return this.issueRegistrationSession(user, metadata);
+  }
+
+  async registerRider(
+    payload: RegisterRiderDto,
+    metadata: SessionRequestMetadata = {},
+  ) {
+    const phone = this.normalizePhone(payload.phone);
+    await this.assertPhoneIsAvailable(phone);
+    const passwordHash = await this.passwordService.hash(payload.password);
+    const user = await this.authRepository.createRiderAccount({
+      phone,
+      passwordHash,
+      displayName: this.normalizeRequiredString(payload.displayName),
+      vehicleType: this.normalizeRequiredString(payload.vehicleType),
+      currentTownship: this.normalizeOptionalString(payload.currentTownship),
+    });
+
+    return this.issueRegistrationSession(user, metadata);
   }
 
   async refreshSession(
@@ -202,6 +258,20 @@ export class AuthService {
     );
   }
 
+  private async assertPhoneIsAvailable(phone: string): Promise<void> {
+    const existingUser = await this.usersService.findByPhone(phone);
+
+    if (existingUser !== null) {
+      throw new AppException(
+        'An account with this phone number already exists.',
+        HttpStatus.CONFLICT,
+        {
+          code: ErrorCodes.conflict,
+        },
+      );
+    }
+  }
+
   private invalidTokenException() {
     return new AppException('Invalid refresh token.', HttpStatus.UNAUTHORIZED, {
       code: ErrorCodes.invalidToken,
@@ -244,6 +314,22 @@ export class AuthService {
       accessToken,
       refreshToken,
       sessionId,
+    };
+  }
+
+  private async issueRegistrationSession(
+    user: UserIdentityRecord,
+    metadata: SessionRequestMetadata,
+  ) {
+    const tokens = await this.issueSession(user, metadata);
+    await this.authRepository.touchLastLogin(user.id);
+
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      sessionId: tokens.sessionId,
+      userId: user.id,
+      actorContext: this.usersService.buildActorContext(user),
     };
   }
 
@@ -300,6 +386,32 @@ export class AuthService {
         expiresIn,
       },
     );
+  }
+
+  private normalizePhone(phone: string): string {
+    return phone.trim();
+  }
+
+  private normalizeRequiredString(value: string): string {
+    return value.trim();
+  }
+
+  private normalizeOptionalString(value: string | undefined): string | null {
+    if (value === undefined) {
+      return null;
+    }
+
+    const normalized = value.trim();
+
+    return normalized.length === 0 ? null : normalized;
+  }
+
+  private normalizeStoreTypeCode(value: string | undefined): string {
+    const normalized = value?.trim().toLowerCase();
+
+    return normalized === undefined || normalized.length === 0
+      ? 'restaurant'
+      : normalized;
   }
 
   private extractExpiryDate(token: string): Date {

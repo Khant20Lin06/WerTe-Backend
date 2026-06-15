@@ -95,9 +95,12 @@ describe('MerchantOrdersController', () => {
       {} as MerchantOrderHandlingService,
     );
 
-    const result = await controller.list(currentUser);
+    const result = await controller.list(currentUser, undefined);
 
-    expect(orderQueryService.listMerchantOrders).toHaveBeenCalledWith(currentUser);
+    expect(orderQueryService.listMerchantOrders).toHaveBeenCalledWith(
+      currentUser,
+      { branchId: undefined },
+    );
     expect(result[0]).toMatchObject({
       orderId: 'order_1',
       availableActions: ['merchant_accept', 'merchant_reject'],

@@ -52,6 +52,8 @@ describe('BranchesService', () => {
         },
       },
     ],
+    operatingHours: null,
+    staffAssignments: [] as { staffId: string }[],
     ...overrides,
   });
 

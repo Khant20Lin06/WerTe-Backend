@@ -19,6 +19,7 @@ describe('UsersService', () => {
     customerProfile: { id: 'cust_prof_1' },
     riderProfile: null,
     merchantProfile: null,
+    staffProfile: null,
     ...overrides,
   });
 
@@ -35,7 +36,14 @@ describe('UsersService', () => {
       status: UserStatus.ACTIVE,
       customerProfileId: 'cust_prof_1',
       riderId: undefined,
+      riderStatus: undefined,
       merchantId: undefined,
+      merchantStatus: undefined,
+      staffMemberId: undefined,
+      staffRole: undefined,
+      staffStatus: undefined,
+      staffBranchIds: undefined,
+      staffMerchantId: undefined,
     });
   });
 

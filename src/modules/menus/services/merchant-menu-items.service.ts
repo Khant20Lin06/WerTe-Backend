@@ -389,6 +389,15 @@ export class MerchantMenuItemsService {
       : 'SELECTED_STORE_TYPES';
   }
 
+  async deleteBranchItem(
+    currentUser: AuthenticatedUserEntity,
+    branchId: string,
+    itemId: string,
+  ): Promise<void> {
+    const item = await this.resolveOwnedItem(currentUser, branchId, itemId);
+    await this.menusRepository.deleteItem(item.id);
+  }
+
   private async resolveOwnedBranch(
     currentUser: AuthenticatedUserEntity,
     branchId: string,

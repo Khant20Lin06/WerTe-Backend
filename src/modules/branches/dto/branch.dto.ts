@@ -99,6 +99,19 @@ export class BranchDto {
   })
   zones!: BranchZoneDto[];
 
+  @ApiPropertyOptional({
+    description:
+      'Weekly operating hours keyed by lowercase weekday (mon–sun).',
+    example: {
+      mon: { open: true, openTime: '09:00', closeTime: '22:00' },
+      sun: { open: false },
+    },
+  })
+  operatingHours?: Record<
+    string,
+    { open: boolean; openTime?: string; closeTime?: string }
+  > | null;
+
   @ApiProperty({
     description: 'Branch creation timestamp.',
     example: '2026-04-19T08:00:00.000Z',
@@ -124,6 +137,10 @@ export function toBranchDto(branch: BranchOwnershipRecord): BranchDto {
     longitude: branch.longitude?.toString() ?? null,
     storeType: branch.storeType,
     status: branch.status,
+    operatingHours: (branch as any).operatingHours as Record<
+      string,
+      { open: boolean; openTime?: string; closeTime?: string }
+    > | null,
     zones: branch.branchZones.map((branchZone) => ({
       zoneId: branchZone.zone.id,
       code: branchZone.zone.code,

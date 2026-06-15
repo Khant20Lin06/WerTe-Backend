@@ -66,6 +66,7 @@ describe('CustomerStoreDiscoveryService', () => {
       name: 'City Mart',
       status: MerchantStatus.ACTIVE,
     },
+    operatingHours: null,
     storeTypes: [
       {
         branchId: 'branch_1',
