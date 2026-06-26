@@ -5,6 +5,7 @@ import {
   IsBoolean,
   IsDateString,
   IsEnum,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
@@ -78,6 +79,16 @@ export class CreatePromotionDto {
   @IsNumber()
   @Min(0.01)
   maximumDiscountAmount?: number;
+
+  @ApiPropertyOptional({
+    description: 'Maximum number of times a single customer can use this promotion.',
+    example: 1,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  perCustomerLimit?: number;
 
   @ApiPropertyOptional({
     description: 'Optional activation start timestamp.',

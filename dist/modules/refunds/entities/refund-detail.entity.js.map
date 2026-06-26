@@ -1,0 +1,1 @@
+{"version":3,"file":"refund-detail.entity.js","sourceRoot":"","sources":["../../../../src/modules/refunds/entities/refund-detail.entity.ts"],"names":[],"mappings":";;;AAOA,0DAQC;AAdD,mEAA8D;AAE9D,MAAa,kBAAmB,SAAQ,2CAAmB;CAE1D;AAFD,gDAEC;AAED,SAAgB,uBAAuB,CACrC,MAA2B,EAC3B,QAA+B;IAE/B,OAAO;QACL,GAAG,MAAM;QACT,QAAQ;KACT,CAAC;AACJ,CAAC"}

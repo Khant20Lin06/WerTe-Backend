@@ -17,6 +17,8 @@ import {
   BranchSummaryRecord,
   StoreTypesRepository,
 } from '../../../../src/modules/store-types/repositories/store-types.repository';
+import { DiscoveryCacheService } from '../../../../src/modules/store-types/services/discovery-cache.service';
+import { StoreTypeCacheService } from '../../../../src/modules/store-types/services/store-type-cache.service';
 import { StoreTypeManagementService } from '../../../../src/modules/store-types/services/store-type-management.service';
 
 describe('StoreTypeManagementService', () => {
@@ -148,6 +150,17 @@ describe('StoreTypeManagementService', () => {
     const service = new StoreTypeManagementService(
       makePrismaService(),
       storeTypesRepository,
+      {
+        getById: jest.fn().mockResolvedValue(null),
+        setById: jest.fn().mockResolvedValue(undefined),
+        getList: jest.fn().mockResolvedValue(null),
+        setList: jest.fn().mockResolvedValue(undefined),
+        getActiveList: jest.fn().mockResolvedValue(null),
+        setActiveList: jest.fn().mockResolvedValue(undefined),
+        invalidateOne: jest.fn().mockResolvedValue(undefined),
+        invalidateAll: jest.fn().mockResolvedValue(undefined),
+      } as unknown as StoreTypeCacheService,
+      { invalidateAll: jest.fn().mockResolvedValue(undefined) } as unknown as DiscoveryCacheService,
       new StoreTypePolicyService(),
       auditService,
     );
@@ -179,6 +192,17 @@ describe('StoreTypeManagementService', () => {
       {
         findStoreTypeByCode: jest.fn().mockResolvedValue(makeStoreType()),
       } as unknown as StoreTypesRepository,
+      {
+        getById: jest.fn().mockResolvedValue(null),
+        setById: jest.fn().mockResolvedValue(undefined),
+        getList: jest.fn().mockResolvedValue(null),
+        setList: jest.fn().mockResolvedValue(undefined),
+        getActiveList: jest.fn().mockResolvedValue(null),
+        setActiveList: jest.fn().mockResolvedValue(undefined),
+        invalidateOne: jest.fn().mockResolvedValue(undefined),
+        invalidateAll: jest.fn().mockResolvedValue(undefined),
+      } as unknown as StoreTypeCacheService,
+      { invalidateAll: jest.fn().mockResolvedValue(undefined) } as unknown as DiscoveryCacheService,
       new StoreTypePolicyService(),
       makeAuditService(),
     );
@@ -221,6 +245,17 @@ describe('StoreTypeManagementService', () => {
     const service = new StoreTypeManagementService(
       prismaService,
       storeTypesRepository,
+      {
+        getById: jest.fn().mockResolvedValue(null),
+        setById: jest.fn().mockResolvedValue(undefined),
+        getList: jest.fn().mockResolvedValue(null),
+        setList: jest.fn().mockResolvedValue(undefined),
+        getActiveList: jest.fn().mockResolvedValue(null),
+        setActiveList: jest.fn().mockResolvedValue(undefined),
+        invalidateOne: jest.fn().mockResolvedValue(undefined),
+        invalidateAll: jest.fn().mockResolvedValue(undefined),
+      } as unknown as StoreTypeCacheService,
+      { invalidateAll: jest.fn().mockResolvedValue(undefined) } as unknown as DiscoveryCacheService,
       new StoreTypePolicyService(),
       auditService,
     );
@@ -261,6 +296,17 @@ describe('StoreTypeManagementService', () => {
     const service = new StoreTypeManagementService(
       makePrismaService(),
       {} as StoreTypesRepository,
+      {
+        getById: jest.fn().mockResolvedValue(null),
+        setById: jest.fn().mockResolvedValue(undefined),
+        getList: jest.fn().mockResolvedValue(null),
+        setList: jest.fn().mockResolvedValue(undefined),
+        getActiveList: jest.fn().mockResolvedValue(null),
+        setActiveList: jest.fn().mockResolvedValue(undefined),
+        invalidateOne: jest.fn().mockResolvedValue(undefined),
+        invalidateAll: jest.fn().mockResolvedValue(undefined),
+      } as unknown as StoreTypeCacheService,
+      { invalidateAll: jest.fn().mockResolvedValue(undefined) } as unknown as DiscoveryCacheService,
       new StoreTypePolicyService(),
       makeAuditService(),
     );
@@ -296,6 +342,17 @@ describe('StoreTypeManagementService', () => {
           }),
         ),
       } as unknown as StoreTypesRepository,
+      {
+        getById: jest.fn().mockResolvedValue(null),
+        setById: jest.fn().mockResolvedValue(undefined),
+        getList: jest.fn().mockResolvedValue(null),
+        setList: jest.fn().mockResolvedValue(undefined),
+        getActiveList: jest.fn().mockResolvedValue(null),
+        setActiveList: jest.fn().mockResolvedValue(undefined),
+        invalidateOne: jest.fn().mockResolvedValue(undefined),
+        invalidateAll: jest.fn().mockResolvedValue(undefined),
+      } as unknown as StoreTypeCacheService,
+      { invalidateAll: jest.fn().mockResolvedValue(undefined) } as unknown as DiscoveryCacheService,
       new StoreTypePolicyService(),
       makeAuditService(),
     );

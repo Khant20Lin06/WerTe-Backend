@@ -12,10 +12,14 @@ import {
   MerchantProfileDto,
   toMerchantProfileDto,
 } from '../dto/merchant-profile.dto';
+import { MerchantsService } from './merchants.service';
 
 @Injectable()
 export class AdminMerchantManagementService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly merchantsService: MerchantsService,
+  ) {}
 
   async listMerchants(status?: MerchantStatus): Promise<MerchantProfileDto[]> {
     const where: Prisma.MerchantWhereInput = status ? { status } : {};
@@ -49,6 +53,8 @@ export class AdminMerchantManagementService {
       data: { status },
       include: merchantOwnershipInclude,
     });
+
+    await this.merchantsService.invalidateCache(updated.id, updated.user.id);
 
     return toMerchantProfileDto(updated);
   }

@@ -29,3 +29,5 @@ for (const [key, value] of Object.entries(envDefaults)) {
 }
 
 jest.setTimeout(30000);
+
+export {};

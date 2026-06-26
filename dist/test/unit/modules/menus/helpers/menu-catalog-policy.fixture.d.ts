@@ -1,0 +1,10 @@
+import { BranchOwnershipRecord } from '../../../../../src/modules/branches/entities/branch-ownership.entity';
+import { ItemOptionGroupOwnershipRecord } from '../../../../../src/modules/menus/entities/item-option-group-ownership.entity';
+import { ItemOptionOwnershipRecord } from '../../../../../src/modules/menus/entities/item-option-ownership.entity';
+import { MenuCategoryOwnershipRecord } from '../../../../../src/modules/menus/entities/menu-category-ownership.entity';
+import { MenuItemOwnershipRecord } from '../../../../../src/modules/menus/entities/menu-item-ownership.entity';
+export declare function makeBranchOwnershipRecord(overrides?: Partial<BranchOwnershipRecord>): BranchOwnershipRecord;
+export declare function makeMenuCategoryOwnershipRecord(overrides?: Partial<MenuCategoryOwnershipRecord>): MenuCategoryOwnershipRecord;
+export declare function makeMenuItemOwnershipRecord(overrides?: Partial<MenuItemOwnershipRecord>): MenuItemOwnershipRecord;
+export declare function makeItemOptionGroupOwnershipRecord(overrides?: Partial<ItemOptionGroupOwnershipRecord>): ItemOptionGroupOwnershipRecord;
+export declare function makeItemOptionOwnershipRecord(overrides?: Partial<ItemOptionOwnershipRecord>): ItemOptionOwnershipRecord;

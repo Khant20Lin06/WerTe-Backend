@@ -26,12 +26,14 @@ import {
 import { RequestBranchStoreTypeDto } from '../dto/request-branch-store-type.dto';
 import { StoreTypePolicyService } from '../policies/store-type-policy.service';
 import { StoreTypesRepository } from '../repositories/store-types.repository';
+import { StoreTypeCacheService } from './store-type-cache.service';
 
 @Injectable()
 export class MerchantStoreTypeRequestService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storeTypesRepository: StoreTypesRepository,
+    private readonly storeTypeCache: StoreTypeCacheService,
     private readonly storeTypePolicyService: StoreTypePolicyService,
     private readonly auditService: AuditService,
   ) {}
@@ -41,7 +43,11 @@ export class MerchantStoreTypeRequestService {
   ): Promise<AvailableStoreTypeDto[]> {
     this.assertCanRequestStoreTypes(currentUser);
 
+    const cached = await this.storeTypeCache.getActiveList();
+    if (cached !== null) return cached.map(toAvailableStoreTypeDto);
+
     const storeTypes = await this.storeTypesRepository.listActiveStoreTypes();
+    await this.storeTypeCache.setActiveList(storeTypes);
 
     return storeTypes.map((storeType) => toAvailableStoreTypeDto(storeType));
   }

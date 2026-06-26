@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
+import Redis from 'ioredis';
 
 import appConfig from './config/app.config';
 import databaseConfig from './config/database.config';
@@ -19,6 +21,7 @@ import { WebsocketModule } from './infrastructure/websocket/websocket.module';
 import { StorageModule } from './infrastructure/storage/storage.module';
 import { NotificationModule } from './infrastructure/notifications/notification.module';
 import { LoggerModule } from './infrastructure/logging/logger.module';
+import { MetricsModule } from './infrastructure/metrics/metrics.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { CustomerProfilesModule } from './modules/customer-profiles/customer-profiles.module';
@@ -46,9 +49,10 @@ import { AuditModule } from './modules/audit/audit.module';
 import { StoreTypesModule } from './modules/store-types/store-types.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { StaffModule } from './modules/staff/staff.module';
+import { RatingsModule } from './modules/ratings/ratings.module';
+import { IpAwareThrottlerGuard } from './common/guards/throttler.guard';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
-import { PoliciesGuard } from './common/guards/policies.guard';
 
 @Module({
   imports: [
@@ -57,18 +61,37 @@ import { PoliciesGuard } from './common/guards/policies.guard';
       load: [appConfig, databaseConfig, redisConfig, jwtConfig, fcmConfig, s3Config],
       validationSchema: envValidationSchema,
     }),
-    ThrottlerModule.forRoot([
-      { name: 'short',  ttl: 1000,  limit: 10  },
-      { name: 'medium', ttl: 10000, limit: 50  },
-      { name: 'long',   ttl: 60000, limit: 200 },
-    ]),
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => {
+        const throttlers = [
+          { name: 'short',  ttl: 1000,  limit: 10  },
+          { name: 'medium', ttl: 10000, limit: 50  },
+          { name: 'long',   ttl: 60000, limit: 200 },
+        ];
+
+        // In test environments there is no real Redis connection available.
+        // Fall back to in-memory throttler storage so tests don't need Redis.
+        if (process.env['NODE_ENV'] === 'test') {
+          return { throttlers };
+        }
+
+        return {
+          throttlers,
+          storage: new ThrottlerStorageRedisService(
+            new Redis(configService.getOrThrow<string>('redis.url')),
+          ),
+        };
+      },
+    }),
+    LoggerModule,
+    MetricsModule,
     PrismaModule,
     RedisModule,
     BullmqModule,
     WebsocketModule,
     StorageModule,
     NotificationModule,
-    LoggerModule,
     AuthModule,
     UsersModule,
     CustomerProfilesModule,
@@ -96,13 +119,14 @@ import { PoliciesGuard } from './common/guards/policies.guard';
     StoreTypesModule,
     UploadsModule,
     StaffModule,
+    RatingsModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: IpAwareThrottlerGuard,
     },
     {
       provide: APP_GUARD,
@@ -111,10 +135,6 @@ import { PoliciesGuard } from './common/guards/policies.guard';
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
-    },
-    {
-      provide: APP_GUARD,
-      useClass: PoliciesGuard,
     },
   ],
 })

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, Param, Post, Req } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import {
   ApiBearerAuth,
@@ -41,11 +41,15 @@ export class AuthController {
       'Returns access token, refresh token, and actor context for the authenticated user.',
     type: LoginResponseDto,
   })
-  @Throttle({ short: { ttl: 60000, limit: 5 }, medium: { ttl: 900000, limit: 20 } })
+  @Throttle({ short: { ttl: 60000, limit: 30 }, medium: { ttl: 900000, limit: 100 } })
   @Public()
   @Post('login')
-  login(@Body() body: LoginDto, @Req() request: Request) {
-    return this.authService.login(body, this.buildSessionMetadata(request));
+  login(
+    @Body() body: LoginDto,
+    @Req() request: Request,
+    @Headers('x-app-client') appClient?: string,
+  ) {
+    return this.authService.login(body, this.buildSessionMetadata(request), appClient);
   }
 
   @ApiOperation({
@@ -58,7 +62,7 @@ export class AuthController {
       'Creates a customer user/profile and returns a token pair for the new account.',
     type: LoginResponseDto,
   })
-  @Throttle({ short: { ttl: 60000, limit: 5 }, medium: { ttl: 900000, limit: 20 } })
+  @Throttle({ short: { ttl: 60000, limit: 30 }, medium: { ttl: 900000, limit: 100 } })
   @Public()
   @Post('register/customer')
   registerCustomer(@Body() body: RegisterCustomerDto, @Req() request: Request) {
@@ -78,7 +82,7 @@ export class AuthController {
       'Creates a merchant user/profile in pending onboarding state and returns a token pair.',
     type: LoginResponseDto,
   })
-  @Throttle({ short: { ttl: 60000, limit: 5 }, medium: { ttl: 900000, limit: 20 } })
+  @Throttle({ short: { ttl: 60000, limit: 30 }, medium: { ttl: 900000, limit: 100 } })
   @Public()
   @Post('register/merchant')
   registerMerchant(@Body() body: RegisterMerchantDto, @Req() request: Request) {
@@ -98,7 +102,7 @@ export class AuthController {
       'Creates a rider user/profile in pending onboarding state and returns a token pair.',
     type: LoginResponseDto,
   })
-  @Throttle({ short: { ttl: 60000, limit: 5 }, medium: { ttl: 900000, limit: 20 } })
+  @Throttle({ short: { ttl: 60000, limit: 30 }, medium: { ttl: 900000, limit: 100 } })
   @Public()
   @Post('register/rider')
   registerRider(@Body() body: RegisterRiderDto, @Req() request: Request) {

@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import {
   CartStatus,
+  DeliveryType,
   ItemOptionGroupKind,
   OrderStatus,
   PaymentMethod,
@@ -21,9 +22,11 @@ import { CartsRepository } from '../../carts/repositories/carts.repository';
 import { SystemMessageService } from '../../messaging/services/system-message.service';
 import { MenuInventoryLifecycleService } from '../../menus/services/menu-inventory-lifecycle.service';
 import { MenusService } from '../../menus/services/menus.service';
+import { buildVariantCombinationSignature } from '../../menus/utils/item-variant-combination.util';
 import { NotificationEventService } from '../../notifications/services/notification-event.service';
 import { OrdersRepository } from '../../orders/repositories/orders.repository';
 import { CheckoutPaymentIntentService } from '../../payments/services/checkout-payment-intent.service';
+import { PromotionsRepository } from '../../promotions/repositories/promotions.repository';
 import {
   buildCheckoutSubmission,
   CheckoutSubmissionEntity,
@@ -36,6 +39,7 @@ import { CheckoutPricingService } from './checkout-pricing.service';
 export type SubmitCheckoutInput = {
   branchId: string;
   addressId?: string;
+  deliveryType?: DeliveryType;
   idempotencyKey: string;
   paymentMethod?: PaymentMethod;
   paymentProvider?: PaymentProvider;
@@ -53,6 +57,7 @@ export class CheckoutSubmissionService {
     private readonly menusService: MenusService,
     private readonly menuInventoryLifecycleService: MenuInventoryLifecycleService,
     private readonly checkoutPaymentIntentService: CheckoutPaymentIntentService,
+    private readonly promotionsRepository: PromotionsRepository,
     private readonly queueService: QueueService,
     private readonly systemMessageService: SystemMessageService,
     private readonly notificationEventService: NotificationEventService,
@@ -62,19 +67,19 @@ export class CheckoutSubmissionService {
     currentUser: AuthenticatedUserEntity,
     input: SubmitCheckoutInput,
   ): Promise<CheckoutSubmissionEntity> {
+    const isPickup = input.deliveryType === DeliveryType.PICKUP;
     const context =
       await this.checkoutContextService.getValidatedCurrentCustomerCheckoutContext(
         currentUser,
         {
           branchId: input.branchId,
           addressId: input.addressId,
+          deliveryType: input.deliveryType,
         },
       );
     const pricing = await this.checkoutPricingService.buildPricingBreakdown(
       context,
-      {
-        promotionCode: input.promotionCode,
-      },
+      { promotionCode: input.promotionCode },
     );
     let reservedInventoryAlerts: Awaited<
       ReturnType<MenuInventoryLifecycleService['reserveTrackedInventoryForOrder']>
@@ -119,14 +124,22 @@ export class CheckoutSubmissionService {
           tx,
         );
 
+        const effectiveDeliveryFee = isPickup
+          ? new Prisma.Decimal(0)
+          : pricing.deliveryFee;
+        const effectiveTotalAmount = isPickup
+          ? pricing.subtotalAmount.minus(pricing.discountAmount)
+          : pricing.totalAmount;
+
         const order = await this.ordersRepository.createCheckoutOrder(
           {
             orderCode: this.buildOrderCode(),
             customerProfileId: context.customer.customerProfileId,
             branchId: context.branch.branchId,
-            addressId: context.address.addressId,
+            addressId: context.address?.addressId ?? null,
             cartId: context.cart.cartId!,
             idempotencyKey: input.idempotencyKey,
+            deliveryType: input.deliveryType ?? DeliveryType.DELIVERY,
             promotionId: pricing.appliedPromotion?.promotionId ?? null,
             promotionCodeSnapshot: pricing.appliedPromotion?.code ?? null,
             promotionNameSnapshot: pricing.appliedPromotion?.name ?? null,
@@ -136,18 +149,22 @@ export class CheckoutSubmissionService {
             currencyCode: context.currencyCode,
             subtotalAmount: pricing.subtotalAmount,
             discountAmount: pricing.discountAmount,
-            deliveryFee: pricing.deliveryFee,
-            totalAmount: pricing.totalAmount,
-            deliveryLabel: context.address.label,
-            deliveryLine1: context.address.line1,
-            deliveryLine2: context.address.line2,
-            deliveryLandmark: context.address.landmark,
-            deliveryTownship: context.address.township,
-            deliveryCity: context.address.city,
-            deliveryPostalCode: context.address.postalCode,
-            deliveryInstructions: context.address.deliveryInstructions,
-            deliveryLatitude: new Prisma.Decimal(context.address.latitude),
-            deliveryLongitude: new Prisma.Decimal(context.address.longitude),
+            deliveryFee: effectiveDeliveryFee,
+            totalAmount: effectiveTotalAmount,
+            deliveryLabel: context.address?.label ?? null,
+            deliveryLine1: context.address?.line1 ?? null,
+            deliveryLine2: context.address?.line2 ?? null,
+            deliveryLandmark: context.address?.landmark ?? null,
+            deliveryTownship: context.address?.township ?? null,
+            deliveryCity: context.address?.city ?? null,
+            deliveryPostalCode: context.address?.postalCode ?? null,
+            deliveryInstructions: context.address?.deliveryInstructions ?? null,
+            deliveryLatitude: context.address
+              ? new Prisma.Decimal(context.address.latitude)
+              : null,
+            deliveryLongitude: context.address
+              ? new Prisma.Decimal(context.address.longitude)
+              : null,
             changedByUserId: currentUser.userId,
             cartItems: orderCartItems.map((cartItem) => ({
               ...cartItem,
@@ -177,11 +194,20 @@ export class CheckoutSubmissionService {
 
         await this.cartsRepository.updateCart(
           context.cart.cartId!,
-          {
-            status: CartStatus.CHECKED_OUT,
-          },
+          { status: CartStatus.CHECKED_OUT },
           tx,
         );
+
+        if (pricing.appliedPromotion?.promotionId) {
+          await this.promotionsRepository.createUsage(
+            {
+              promotionId: pricing.appliedPromotion.promotionId,
+              customerProfileId: context.customer.customerProfileId,
+              orderId: order.id,
+            },
+            tx,
+          );
+        }
 
         return {
           order,
@@ -241,93 +267,89 @@ export class CheckoutSubmissionService {
   }
 
   private async buildOrderCartItems(context: CheckoutContextEntity) {
-    return Promise.all(
-      context.cart.items.map(async (item) => {
-        const currentMenuItem = await this.menusService.findItemById(item.menuItemId);
-        const optionGroups = await this.menusService.listOptionGroupsByMenuItemId(
-          item.menuItemId,
-        );
-        const optionGroupKindById = new Map(
-          optionGroups.map((group) => [group.id, group.kind]),
-        );
-        const optionRecords = await Promise.all(
-          optionGroups.map((group) =>
-            this.menusService.listOptionsByOptionGroupId(group.id),
-          ),
-        );
-        const optionStockTrackedById = new Map(
-          optionRecords
-            .flat()
-            .map((option) => [option.id, option.isStockTracked] as const),
-        );
-        const optionById = new Map(
-          optionRecords.flat().map((option) => [option.id, option] as const),
-        );
-        const selectedVariantOptionIds = item.selectedOptions
-          .map((selectedOption) => optionById.get(selectedOption.itemOptionId))
-          .filter(
-            (option): option is NonNullable<typeof option> =>
-              option !== undefined &&
-              option.group.kind === ItemOptionGroupKind.VARIANT_SELECTOR,
-          )
-          .map((option) => option.id);
-        const selectedVariantCombination =
-          await this.menusService.findActiveVariantCombinationByMenuItemIdAndOptionIds(
-            item.menuItemId,
-            selectedVariantOptionIds,
-          );
+    const { branchId } = context.branch;
+    const menuItemIds = context.cart.items.map((i) => i.menuItemId);
 
-        if (
-          selectedVariantOptionIds.length > 0 &&
-          selectedVariantCombination === null
-        ) {
-          throw new AppException(
-            'The selected variant combination is no longer valid for checkout submission.',
-            HttpStatus.CONFLICT,
-            {
-              code: ErrorCodes.conflict,
-              details: {
-                menuItemId: item.menuItemId,
-                selectedVariantOptionIds,
-              },
-            },
-          );
-        }
+    // 3 queries regardless of cart size (replaces N×4 per-item queries).
+    const [menuItems, allOptions, allVariantCombinations] = await Promise.all([
+      this.menusService.listItemsByIds(menuItemIds),
+      this.menusService.listOptionsByBranchId(branchId),
+      this.menusService.listVariantCombinationsByMenuItemIds(menuItemIds),
+    ]);
 
-        return {
-          lineKey: item.cartItemId,
-          menuItemId: item.menuItemId,
-          categoryId: item.categoryId ?? null,
-          nameSnapshot: item.menuItemName,
-          descriptionSnapshot: item.menuItemDescription ?? null,
-          imageUrlSnapshot: item.menuItemImageUrl ?? null,
-          selectedVariantCombinationId: selectedVariantCombination?.id ?? null,
-          selectedVariantCombinationNameSnapshot:
-            selectedVariantCombination?.name ?? null,
-          menuItemStockTrackedSnapshot: currentMenuItem?.isStockTracked ?? false,
-          variantCombinationStockTrackedSnapshot:
-            selectedVariantCombination?.isStockTracked ?? false,
-          unitBasePriceSnapshot: new Prisma.Decimal(item.menuItemBasePrice),
-          unitPriceSnapshot: new Prisma.Decimal(item.unitPriceSnapshot),
-          quantity: item.quantity,
-          lineTotal: new Prisma.Decimal(item.lineTotal),
-          selectedOptions: item.selectedOptions.map((selectedOption) => ({
-            itemOptionId: selectedOption.itemOptionId,
-            optionGroupId: selectedOption.optionGroupId,
-            optionGroupNameSnapshot: selectedOption.optionGroupName,
-            optionGroupKindSnapshot:
-              optionGroupKindById.get(selectedOption.optionGroupId) ??
-              ItemOptionGroupKind.ADD_ON,
-            itemOptionStockTrackedSnapshot:
-              optionStockTrackedById.get(selectedOption.itemOptionId) ?? false,
-            nameSnapshot: selectedOption.nameSnapshot,
-            priceDeltaSnapshot: new Prisma.Decimal(
-              selectedOption.priceDeltaSnapshot,
-            ),
-          })),
-        };
-      }),
+    const menuItemById = new Map(menuItems.map((m) => [m.id, m]));
+    const optionById = new Map(allOptions.map((o) => [o.id, o]));
+    const optionGroupKindById = new Map(
+      allOptions.map((o) => [o.group.id, o.group.kind]),
     );
+    const optionStockTrackedById = new Map(
+      allOptions.map((o) => [o.id, o.isStockTracked]),
+    );
+    // Key: `${menuItemId}:${signature}` → combination record
+    const combinationByKey = new Map(
+      allVariantCombinations.map((c) => [`${c.menuItemId}:${c.signature}`, c]),
+    );
+
+    return context.cart.items.map((item) => {
+      const menuItem = menuItemById.get(item.menuItemId);
+
+      const selectedVariantOptionIds = item.selectedOptions
+        .map((so) => optionById.get(so.itemOptionId))
+        .filter(
+          (option): option is NonNullable<typeof option> =>
+            option !== undefined &&
+            option.group.kind === ItemOptionGroupKind.VARIANT_SELECTOR,
+        )
+        .map((option) => option.id);
+
+      const signature = buildVariantCombinationSignature(selectedVariantOptionIds);
+      const selectedVariantCombination =
+        selectedVariantOptionIds.length > 0
+          ? (combinationByKey.get(`${item.menuItemId}:${signature}`) ?? null)
+          : null;
+
+      if (selectedVariantOptionIds.length > 0 && selectedVariantCombination === null) {
+        throw new AppException(
+          'The selected variant combination is no longer valid for checkout submission.',
+          HttpStatus.CONFLICT,
+          {
+            code: ErrorCodes.conflict,
+            details: { menuItemId: item.menuItemId, selectedVariantOptionIds },
+          },
+        );
+      }
+
+      return {
+        lineKey: item.cartItemId,
+        menuItemId: item.menuItemId,
+        categoryId: item.categoryId ?? null,
+        nameSnapshot: item.menuItemName,
+        descriptionSnapshot: item.menuItemDescription ?? null,
+        imageUrlSnapshot: item.menuItemImageUrl ?? null,
+        selectedVariantCombinationId: selectedVariantCombination?.id ?? null,
+        selectedVariantCombinationNameSnapshot:
+          selectedVariantCombination?.name ?? null,
+        menuItemStockTrackedSnapshot: menuItem?.isStockTracked ?? false,
+        variantCombinationStockTrackedSnapshot:
+          selectedVariantCombination?.isStockTracked ?? false,
+        unitBasePriceSnapshot: new Prisma.Decimal(item.menuItemBasePrice),
+        unitPriceSnapshot: new Prisma.Decimal(item.unitPriceSnapshot),
+        quantity: item.quantity,
+        lineTotal: new Prisma.Decimal(item.lineTotal),
+        selectedOptions: item.selectedOptions.map((selectedOption) => ({
+          itemOptionId: selectedOption.itemOptionId,
+          optionGroupId: selectedOption.optionGroupId,
+          optionGroupNameSnapshot: selectedOption.optionGroupName,
+          optionGroupKindSnapshot:
+            optionGroupKindById.get(selectedOption.optionGroupId) ??
+            ItemOptionGroupKind.ADD_ON,
+          itemOptionStockTrackedSnapshot:
+            optionStockTrackedById.get(selectedOption.itemOptionId) ?? false,
+          nameSnapshot: selectedOption.nameSnapshot,
+          priceDeltaSnapshot: new Prisma.Decimal(selectedOption.priceDeltaSnapshot),
+        })),
+      };
+    });
   }
 
   private assertIdempotentOrderBelongsToCustomer(
@@ -399,7 +421,7 @@ export class CheckoutSubmissionService {
     const existingPaymentIntent = await this.resolveExistingOrCreatePaymentIntent(
       {
         branchId: context.branch.branchId,
-        addressId: context.address.addressId,
+        addressId: context.address?.addressId,
         idempotencyKey,
       },
       context,

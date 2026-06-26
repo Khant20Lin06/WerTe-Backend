@@ -1,4 +1,8 @@
 import { Module } from '@nestjs/common';
 
-@Module({})
+import { AdminDlqController } from './controllers/admin-dlq.controller';
+
+@Module({
+  controllers: [AdminDlqController],
+})
 export class AdminOpsModule {}

@@ -13,6 +13,7 @@ import { NotificationsModule } from '../../modules/notifications/notifications.m
 import { OrdersModule } from '../../modules/orders/orders.module';
 import { PaymentsModule } from '../../modules/payments/payments.module';
 import { RefundsModule } from '../../modules/refunds/refunds.module';
+import { DlqService } from './dlq.service';
 import { QueueService } from './queue.service';
 
 @Global()
@@ -25,6 +26,7 @@ import { QueueService } from './queue.service';
     RefundsModule,
   ],
   providers: [
+    DlqService,
     QueueService,
     InventoryAlertDigestJob,
     PushNotificationJob,
@@ -35,6 +37,6 @@ import { QueueService } from './queue.service';
     RefundProviderEventProcessingJob,
     ProviderWebhookReconciliationJob,
   ],
-  exports: [QueueService],
+  exports: [QueueService, DlqService],
 })
 export class BullmqModule {}

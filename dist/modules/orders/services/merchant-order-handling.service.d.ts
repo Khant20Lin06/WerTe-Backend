@@ -1,5 +1,9 @@
+import { PrismaService } from '../../../infrastructure/database/prisma.service';
+import { QueueService } from '../../../infrastructure/queue/queue.service';
 import { AuthenticatedUserEntity } from '../../auth/entities/authenticated-user.entity';
 import { SystemMessageService } from '../../messaging/services/system-message.service';
+import { MenuInventoryLifecycleService } from '../../menus/services/menu-inventory-lifecycle.service';
+import { NotificationEventService } from '../../notifications/services/notification-event.service';
 import { MerchantOrderActionDto } from '../dto/merchant-order-action.dto';
 import { OrderDetailEntity } from '../entities/order-detail.entity';
 import { OrderPolicyService } from '../policies/order-policy.service';
@@ -11,11 +15,15 @@ type MerchantOrderActionInput = {
     note?: string;
 };
 export declare class MerchantOrderHandlingService {
+    private readonly prisma;
     private readonly ordersRepository;
     private readonly orderPolicyService;
     private readonly orderQueryService;
     private readonly systemMessageService;
-    constructor(ordersRepository: OrdersRepository, orderPolicyService: OrderPolicyService, orderQueryService: OrderQueryService, systemMessageService: SystemMessageService);
+    private readonly menuInventoryLifecycleService;
+    private readonly notificationEventService;
+    private readonly queueService;
+    constructor(prisma: PrismaService, ordersRepository: OrdersRepository, orderPolicyService: OrderPolicyService, orderQueryService: OrderQueryService, systemMessageService: SystemMessageService, menuInventoryLifecycleService: MenuInventoryLifecycleService, notificationEventService: NotificationEventService, queueService: QueueService);
     acceptCurrentMerchantOrder(currentUser: AuthenticatedUserEntity, input: MerchantOrderActionInput | (MerchantOrderActionDto & {
         orderId: string;
     })): Promise<OrderDetailEntity>;
@@ -25,7 +33,15 @@ export declare class MerchantOrderHandlingService {
     markPreparingCurrentMerchantOrder(currentUser: AuthenticatedUserEntity, input: MerchantOrderActionInput | (MerchantOrderActionDto & {
         orderId: string;
     })): Promise<OrderDetailEntity>;
+    markReadyCurrentMerchantOrder(currentUser: AuthenticatedUserEntity, input: MerchantOrderActionInput | (MerchantOrderActionDto & {
+        orderId: string;
+    })): Promise<OrderDetailEntity>;
+    confirmPickupCurrentMerchantOrder(currentUser: AuthenticatedUserEntity, input: MerchantOrderActionInput | (MerchantOrderActionDto & {
+        orderId: string;
+    })): Promise<OrderDetailEntity>;
     private handleMerchantAction;
+    private publishRestoredInventoryAlerts;
+    private _autoAdvancePickupToReady;
     private mapStatusToSystemMessageCode;
 }
 export {};

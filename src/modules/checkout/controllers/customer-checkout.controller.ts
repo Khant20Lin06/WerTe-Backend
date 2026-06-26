@@ -43,6 +43,7 @@ export class CustomerCheckoutController {
         {
           branchId: body.branchId,
           addressId: body.addressId,
+          deliveryType: body.deliveryType,
           promotionCode: body.promotionCode,
         },
       );

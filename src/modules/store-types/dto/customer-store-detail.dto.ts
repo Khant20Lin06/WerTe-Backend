@@ -2,7 +2,11 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { BranchCatalogEntity } from '../../menus/entities/branch-catalog.entity';
 import { CustomerStoreDiscoveryRecord } from '../entities/customer-store-discovery.entity';
-import { CustomerStoreTypeBadgeDto } from './customer-store-summary.dto';
+import {
+  computeIsOpenNow,
+  CustomerStoreOperatingHoursDto,
+  CustomerStoreTypeBadgeDto,
+} from './customer-store-summary.dto';
 
 export class CustomerStoreCatalogEntrySummaryDto {
   @ApiProperty({
@@ -110,11 +114,38 @@ export class CustomerStoreDetailDto {
     example: 18,
   })
   visibleItemCount!: number;
+
+  @ApiPropertyOptional({
+    description: 'Average rating score for the branch (1-5). Null when no ratings exist.',
+    example: 4.5,
+    nullable: true,
+  })
+  averageRating!: number | null;
+
+  @ApiProperty({
+    description: 'Total number of ratings for the branch.',
+    example: 12,
+  })
+  reviewCount!: number;
+
+  @ApiProperty({
+    description: 'Whether the branch is currently open based on its operating hours.',
+    example: true,
+  })
+  isOpenNow!: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Operating hours per day of week. Null if not configured.',
+    type: CustomerStoreOperatingHoursDto,
+    nullable: true,
+  })
+  operatingHours!: CustomerStoreOperatingHoursDto | null;
 }
 
 export function toCustomerStoreDetailDto(
   branch: CustomerStoreDiscoveryRecord,
   catalog: BranchCatalogEntity,
+  ratingAggregate?: { averageRating: number | null; reviewCount: number },
 ): CustomerStoreDetailDto {
   const approvedStoreTypes = branch.storeTypes.map((assignment) => ({
     id: assignment.storeType.id,
@@ -140,6 +171,8 @@ export function toCustomerStoreDetailDto(
       0,
     );
 
+  const operatingHours = branch.operatingHours as CustomerStoreOperatingHoursDto | null;
+
   return {
     branchId: branch.id,
     branchName: branch.name,
@@ -156,5 +189,9 @@ export function toCustomerStoreDetailDto(
     catalogEntries,
     visibleCategoryCount: catalog.categories.length,
     visibleItemCount,
+    averageRating: ratingAggregate?.averageRating ?? null,
+    reviewCount: ratingAggregate?.reviewCount ?? 0,
+    isOpenNow: computeIsOpenNow(operatingHours),
+    operatingHours,
   };
 }

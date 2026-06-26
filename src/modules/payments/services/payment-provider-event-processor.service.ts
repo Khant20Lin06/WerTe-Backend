@@ -8,6 +8,7 @@ import {
 
 import { ErrorCodes } from '../../../common/constants/error-codes';
 import { AppException } from '../../../common/exceptions/app.exception';
+import { asJsonObject } from '../../../common/utils/prisma-json.util';
 import { createSystemAuthenticatedActor } from '../../auth/entities/system-authenticated-actor.helper';
 import {
   isProviderEventVerifiedForProcessing,
@@ -335,7 +336,7 @@ export class PaymentProviderEventProcessorService {
     nextMetadata: Record<string, Prisma.JsonValue | Prisma.InputJsonValue>,
   ): Prisma.InputJsonValue {
     return {
-      ...(this.asJsonObject(event.processingMetadataJson) ?? {}),
+      ...(asJsonObject(event.processingMetadataJson) ?? {}),
       processor: 'payment_webhook_lifecycle',
       provider: event.provider,
       providerEventId: event.providerEventId,
@@ -421,13 +422,4 @@ export class PaymentProviderEventProcessorService {
     return 'Payment provider event could not be processed.';
   }
 
-  private asJsonObject(
-    value: Prisma.JsonValue | Prisma.InputJsonValue | null | undefined,
-  ): Record<string, Prisma.JsonValue | Prisma.InputJsonValue> | null {
-    if (value == null || typeof value !== 'object' || Array.isArray(value)) {
-      return null;
-    }
-
-    return value as Record<string, Prisma.JsonValue | Prisma.InputJsonValue>;
-  }
 }

@@ -60,6 +60,10 @@ export class MenusService {
     return this.menusRepository.listItemsByBranchId(branchId);
   }
 
+  listItemsByIds(ids: string[]): Promise<MenuItemOwnershipRecord[]> {
+    return this.menusRepository.listItemsByIds(ids);
+  }
+
   findOptionGroupById(
     id: string,
   ): Promise<ItemOptionGroupOwnershipRecord | null> {
@@ -96,6 +100,12 @@ export class MenusService {
     menuItemId: string,
   ): Promise<ItemVariantCombinationOwnershipRecord[]> {
     return this.menusRepository.listVariantCombinationsByMenuItemId(menuItemId);
+  }
+
+  listVariantCombinationsByMenuItemIds(
+    menuItemIds: string[],
+  ): Promise<ItemVariantCombinationOwnershipRecord[]> {
+    return this.menusRepository.listVariantCombinationsByMenuItemIds(menuItemIds);
   }
 
   findItemInventoryLotById(

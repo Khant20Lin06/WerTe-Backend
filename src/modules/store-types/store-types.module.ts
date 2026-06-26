@@ -9,7 +9,9 @@ import { MerchantStoreTypesController } from './controllers/merchant-store-types
 import { StoreTypePolicyService } from './policies/store-type-policy.service';
 import { StoreTypesRepository } from './repositories/store-types.repository';
 import { CustomerStoreDiscoveryService } from './services/customer-store-discovery.service';
+import { DiscoveryCacheService } from './services/discovery-cache.service';
 import { MerchantStoreTypeRequestService } from './services/merchant-store-type-request.service';
+import { StoreTypeCacheService } from './services/store-type-cache.service';
 import { StoreTypeManagementService } from './services/store-type-management.service';
 
 @Module({
@@ -22,6 +24,8 @@ import { StoreTypeManagementService } from './services/store-type-management.ser
   ],
   providers: [
     StoreTypesRepository,
+    StoreTypeCacheService,
+    DiscoveryCacheService,
     StoreTypeManagementService,
     CustomerStoreDiscoveryService,
     MerchantStoreTypeRequestService,

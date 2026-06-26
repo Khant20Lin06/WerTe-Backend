@@ -17,6 +17,17 @@ enum UserRole {
   SUPPORT
 }
 
+enum RaterType {
+  CUSTOMER
+  RIDER
+}
+
+enum RatingTargetType {
+  RIDER
+  BRANCH
+  CUSTOMER
+}
+
 enum MerchantStaffRole {
   MANAGER
   CASHIER
@@ -85,6 +96,11 @@ enum OrderStatus {
   CANCELLED
   MERCHANT_REJECTED
   FAILED_DELIVERY
+}
+
+enum DeliveryType {
+  DELIVERY
+  PICKUP
 }
 
 enum DeliveryStatus {
@@ -264,6 +280,7 @@ enum ItemOptionGroupKind {
 enum PromotionDiscountType {
   FIXED_AMOUNT
   PERCENTAGE
+  FREE_DELIVERY
 }
 
 enum PaymentMethod {
@@ -850,17 +867,32 @@ model Promotion {
   discountValue         Decimal
   minimumSubtotalAmount Decimal               @default(0)
   maximumDiscountAmount Decimal?
+  perCustomerLimit      Int?
   startsAt              DateTime?
   endsAt                DateTime?
   isActive              Boolean               @default(true)
+  deletedAt             DateTime?
   createdAt             DateTime              @default(now())
   updatedAt             DateTime              @updatedAt
   branch                Branch                @relation(fields: [branchId], references: [id])
   orders                Order[]
+  usages                PromotionUsage[]
 
   @@unique([branchId, code])
   @@index([branchId, isActive])
   @@index([branchId, startsAt, endsAt])
+}
+
+model PromotionUsage {
+  id                String    @id @default(cuid())
+  promotionId       String
+  customerProfileId String
+  orderId           String    @unique
+  createdAt         DateTime  @default(now())
+  promotion         Promotion @relation(fields: [promotionId], references: [id])
+
+  @@unique([promotionId, customerProfileId, orderId])
+  @@index([promotionId, customerProfileId])
 }
 
 model Order {
@@ -876,6 +908,7 @@ model Order {
   promotionNameSnapshot         String?
   promotionDiscountTypeSnapshot PromotionDiscountType?
   status                        OrderStatus
+  deliveryType                  DeliveryType           @default(DELIVERY)
   subtotalAmount                Decimal                @default(0)
   discountAmount                Decimal                @default(0)
   deliveryFee                   Decimal                @default(0)
@@ -909,6 +942,7 @@ model Order {
   notifications                 Notification[]
   auditLogs                     AuditLog[]
   supportTickets                SupportTicket[]
+  ratings                       Rating[]
 
   @@index([customerProfileId, placedAt])
   @@index([branchId, status, placedAt])
@@ -1530,4 +1564,35 @@ model BranchStaffAssignment {
 
   @@id([staffId, branchId])
   @@index([branchId])
+}
+
+model Rating {
+  id               String           @id @default(cuid())
+  orderId          String
+  raterType        RaterType
+  raterId          String
+  targetType       RatingTargetType
+  targetId         String
+  score            Int
+  comment          String?
+  createdAt        DateTime         @default(now())
+  order            Order            @relation(fields: [orderId], references: [id])
+
+  @@unique([orderId, raterType, targetType])
+  @@index([targetType, targetId])
+  @@index([orderId])
+  @@index([raterId, raterType])
+}
+
+model PlatformPaymentMethod {
+  id           String        @id @default(cuid())
+  method       PaymentMethod @unique
+  displayName  String
+  description  String?
+  isEnabled    Boolean       @default(false)
+  sortOrder    Int           @default(0)
+  // For BANK_TRANSFER — shown to customer after placing order
+  bankDetails  Json?
+  updatedAt    DateTime      @updatedAt
+  createdAt    DateTime      @default(now())
 }

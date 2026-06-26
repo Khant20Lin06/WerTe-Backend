@@ -165,10 +165,11 @@ describe('AuthService', () => {
     );
 
     await expect(
-      service.login({
-        phone: '09123456789',
-        password: 'secret',
-      }),
+      service.login(
+        { phone: '09123456789', password: 'secret' },
+        {},
+        'customer',
+      ),
     ).rejects.toMatchObject({
       status: HttpStatus.FORBIDDEN,
     });
@@ -197,10 +198,11 @@ describe('AuthService', () => {
       passwordService,
     );
 
-    const result = await service.login({
-      phone: '09123456789',
-      password: 'secret',
-    });
+    const result = await service.login(
+      { phone: '09123456789', password: 'secret' },
+      {},
+      'customer',
+    );
 
     expect(authRepository.createSession).toHaveBeenCalled();
     expect(authRepository.touchLastLogin).toHaveBeenCalledWith('usr_1');

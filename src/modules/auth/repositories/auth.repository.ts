@@ -13,6 +13,7 @@ import {
   UserIdentityRecord,
   userIdentityInclude,
 } from '../../users/entities/actor-context.entity';
+import { SessionCacheService } from '../services/session-cache.service';
 
 export const userSessionInclude = Prisma.validator<Prisma.UserSessionInclude>()({
   user: {
@@ -66,7 +67,10 @@ type CreateRiderAccountParams = {
 
 @Injectable()
 export class AuthRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly sessionCache: SessionCacheService,
+  ) {}
 
   touchLastLogin(userId: string) {
     return this.prisma.user.update({
@@ -170,7 +174,7 @@ export class AuthRepository {
     });
   }
 
-  rotateSession(
+  async rotateSession(
     sessionId: string,
     refreshTokenHash: string,
     expiresAt: Date,
@@ -180,30 +184,39 @@ export class AuthRepository {
       ipAddress?: string | null;
     },
   ) {
-    return this.prisma.userSession.update({
-      where: { id: sessionId },
-      data: {
-        refreshTokenHash,
-        expiresAt,
-        lastUsedAt: new Date(),
-        deviceId: metadata?.deviceId ?? undefined,
-        userAgent: metadata?.userAgent ?? undefined,
-        ipAddress: metadata?.ipAddress ?? undefined,
-      },
-      include: userSessionInclude,
-    });
+    const [session] = await Promise.all([
+      this.prisma.userSession.update({
+        where: { id: sessionId },
+        data: {
+          refreshTokenHash,
+          expiresAt,
+          lastUsedAt: new Date(),
+          deviceId: metadata?.deviceId ?? undefined,
+          userAgent: metadata?.userAgent ?? undefined,
+          ipAddress: metadata?.ipAddress ?? undefined,
+        },
+        include: userSessionInclude,
+      }),
+      // Invalidate so the next access-token request re-populates with fresh data.
+      this.sessionCache.invalidate(sessionId),
+    ]);
+    return session;
   }
 
-  revokeSession(sessionId: string) {
-    return this.prisma.userSession.updateMany({
-      where: {
-        id: sessionId,
-        revokedAt: null,
-      },
-      data: {
-        revokedAt: new Date(),
-      },
-    });
+  async revokeSession(sessionId: string) {
+    const [result] = await Promise.all([
+      this.prisma.userSession.updateMany({
+        where: {
+          id: sessionId,
+          revokedAt: null,
+        },
+        data: {
+          revokedAt: new Date(),
+        },
+      }),
+      this.sessionCache.invalidate(sessionId),
+    ]);
+    return result;
   }
 
   registerPushToken(params: RegisterPushTokenParams) {

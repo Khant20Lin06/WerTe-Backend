@@ -1,0 +1,57 @@
+import { PaymentProvider, Prisma, ProviderEventProcessingStatus, ProviderEventVerificationStatus, RefundStatus } from '@prisma/client';
+export declare const refundProviderEventSelect: {
+    id: true;
+    provider: true;
+    providerEventId: true;
+    eventType: true;
+    refundId: true;
+    paymentId: true;
+    orderId: true;
+    providerReference: true;
+    normalizedStatus: true;
+    verificationStatus: true;
+    processingStatus: true;
+    signatureHeader: true;
+    headersJson: true;
+    rawPayloadJson: true;
+    normalizedPayloadJson: true;
+    processingMetadataJson: true;
+    failureCode: true;
+    failureMessage: true;
+    receivedAt: true;
+    processedAt: true;
+    failedAt: true;
+    ignoredAt: true;
+    createdAt: true;
+    updatedAt: true;
+};
+export type RefundProviderEventRecord = Prisma.RefundProviderEventGetPayload<{
+    select: typeof refundProviderEventSelect;
+}>;
+export declare class RefundProviderEventEntity {
+    refundProviderEventId: string;
+    provider: PaymentProvider;
+    providerEventId: string | null;
+    eventType: string;
+    refundId: string | null;
+    paymentId: string | null;
+    orderId: string | null;
+    providerReference: string | null;
+    normalizedStatus: RefundStatus | null;
+    verificationStatus: ProviderEventVerificationStatus;
+    processingStatus: ProviderEventProcessingStatus;
+    signatureHeader: string | null;
+    headers: Prisma.JsonValue | null;
+    rawPayload: Prisma.JsonValue;
+    normalizedPayload: Prisma.JsonValue | null;
+    processingMetadata: Prisma.JsonValue | null;
+    failureCode: string | null;
+    failureMessage: string | null;
+    receivedAt: string;
+    processedAt: string | null;
+    failedAt: string | null;
+    ignoredAt: string | null;
+    createdAt: string;
+    updatedAt: string;
+}
+export declare function buildRefundProviderEventEntity(event: RefundProviderEventRecord): RefundProviderEventEntity;

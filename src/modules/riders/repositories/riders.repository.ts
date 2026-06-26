@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, RiderStatus, UserStatus } from '@prisma/client';
 
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import {
@@ -26,6 +26,36 @@ export class RidersRepository {
     return this.prisma.rider.findUnique({
       where: { userId },
       include: riderOwnershipInclude,
+    });
+  }
+
+  findEligibleRiders(options?: {
+    township?: string | null;
+  }): Promise<RiderOwnershipRecord[]> {
+    return this.prisma.rider.findMany({
+      where: {
+        status: RiderStatus.ACTIVE,
+        user: { status: UserStatus.ACTIVE },
+        availability: {
+          isOnline: true,
+          isAvailable: true,
+        },
+        // Exclude riders already on an active delivery
+        deliveries: {
+          none: {
+            status: { in: ['ASSIGNED', 'PICKED_UP', 'ON_THE_WAY'] },
+          },
+        },
+        ...(options?.township
+          ? { currentTownship: options.township }
+          : {}),
+      },
+      include: riderOwnershipInclude,
+      orderBy: [
+        // Prefer riders whose availability changed most recently (just came online)
+        { availability: { lastStatusChangedAt: 'asc' } },
+        { id: 'asc' },
+      ],
     });
   }
 

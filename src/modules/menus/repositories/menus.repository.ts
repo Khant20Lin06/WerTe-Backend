@@ -126,6 +126,16 @@ export class MenusRepository {
     });
   }
 
+  listItemsByIds(
+    ids: string[],
+    client: MenuDatabaseClient = this.prisma,
+  ): Promise<MenuItemOwnershipRecord[]> {
+    return client.menuItem.findMany({
+      where: { id: { in: ids } },
+      include: menuItemOwnershipInclude,
+    });
+  }
+
   createItem(
     data: Prisma.MenuItemUncheckedCreateInput,
     client: MenuDatabaseClient = this.prisma,
@@ -453,6 +463,16 @@ export class MenusRepository {
       where: { menuItemId },
       include: itemVariantCombinationOwnershipInclude,
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+  }
+
+  listVariantCombinationsByMenuItemIds(
+    menuItemIds: string[],
+    client: MenuDatabaseClient = this.prisma,
+  ): Promise<ItemVariantCombinationOwnershipRecord[]> {
+    return client.itemVariantCombination.findMany({
+      where: { menuItemId: { in: menuItemIds }, isActive: true },
+      include: itemVariantCombinationOwnershipInclude,
     });
   }
 

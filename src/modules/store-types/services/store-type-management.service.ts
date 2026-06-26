@@ -23,12 +23,16 @@ import { StoreTypeDto, toStoreTypeDto } from '../dto/store-type.dto';
 import { UpdateStoreTypeDto } from '../dto/update-store-type.dto';
 import { StoreTypePolicyService } from '../policies/store-type-policy.service';
 import { StoreTypesRepository } from '../repositories/store-types.repository';
+import { DiscoveryCacheService } from './discovery-cache.service';
+import { StoreTypeCacheService } from './store-type-cache.service';
 
 @Injectable()
 export class StoreTypeManagementService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storeTypesRepository: StoreTypesRepository,
+    private readonly storeTypeCache: StoreTypeCacheService,
+    private readonly discoveryCache: DiscoveryCacheService,
     private readonly storeTypePolicyService: StoreTypePolicyService,
     private readonly auditService: AuditService,
   ) {}
@@ -38,7 +42,11 @@ export class StoreTypeManagementService {
   ): Promise<StoreTypeDto[]> {
     this.assertCanManageStoreTypes(currentUser);
 
+    const cached = await this.storeTypeCache.getList();
+    if (cached !== null) return cached.map(toStoreTypeDto);
+
     const storeTypes = await this.storeTypesRepository.listStoreTypes();
+    await this.storeTypeCache.setList(storeTypes);
 
     return storeTypes.map((storeType) => toStoreTypeDto(storeType));
   }
@@ -88,21 +96,25 @@ export class StoreTypeManagementService {
       ...(payload.isActive === false ? { deletedAt: new Date() } : {}),
     });
 
-    await this.auditService.logAction({
-      actorType: AuditActorType.USER,
-      actorUserId: currentUser.userId,
-      actorRole: currentUser.role,
-      actionSource: AuditActionSource.API,
-      action: 'store_types.created',
-      resourceType: AuditResourceType.STORE_TYPE,
-      resourceId: storeType.id,
-      resourceLabel: storeType.name,
-      metadataJson: {
-        code: storeType.code,
-        isActive: storeType.isActive,
-        isSystem: storeType.isSystem,
-      },
-    });
+    await Promise.all([
+      this.auditService.logAction({
+        actorType: AuditActorType.USER,
+        actorUserId: currentUser.userId,
+        actorRole: currentUser.role,
+        actionSource: AuditActionSource.API,
+        action: 'store_types.created',
+        resourceType: AuditResourceType.STORE_TYPE,
+        resourceId: storeType.id,
+        resourceLabel: storeType.name,
+        metadataJson: {
+          code: storeType.code,
+          isActive: storeType.isActive,
+          isSystem: storeType.isSystem,
+        },
+      }),
+      this.storeTypeCache.invalidateAll(),
+      this.discoveryCache.invalidateAll(),
+    ]);
 
     return toStoreTypeDto(storeType);
   }
@@ -142,20 +154,24 @@ export class StoreTypeManagementService {
         : {}),
     });
 
-    await this.auditService.logAction({
-      actorType: AuditActorType.USER,
-      actorUserId: currentUser.userId,
-      actorRole: currentUser.role,
-      actionSource: AuditActionSource.API,
-      action: 'store_types.updated',
-      resourceType: AuditResourceType.STORE_TYPE,
-      resourceId: storeType.id,
-      resourceLabel: storeType.name,
-      metadataJson: {
-        isActive: storeType.isActive,
-        sortOrder: storeType.sortOrder,
-      },
-    });
+    await Promise.all([
+      this.auditService.logAction({
+        actorType: AuditActorType.USER,
+        actorUserId: currentUser.userId,
+        actorRole: currentUser.role,
+        actionSource: AuditActionSource.API,
+        action: 'store_types.updated',
+        resourceType: AuditResourceType.STORE_TYPE,
+        resourceId: storeType.id,
+        resourceLabel: storeType.name,
+        metadataJson: {
+          isActive: storeType.isActive,
+          sortOrder: storeType.sortOrder,
+        },
+      }),
+      this.storeTypeCache.invalidateOne(storeType.id, storeType.code),
+      this.discoveryCache.invalidateAll(),
+    ]);
 
     return toStoreTypeDto(storeType);
   }
@@ -179,19 +195,23 @@ export class StoreTypeManagementService {
       },
     );
 
-    await this.auditService.logAction({
-      actorType: AuditActorType.USER,
-      actorUserId: currentUser.userId,
-      actorRole: currentUser.role,
-      actionSource: AuditActionSource.API,
-      action: 'store_types.archived',
-      resourceType: AuditResourceType.STORE_TYPE,
-      resourceId: archivedStoreType.id,
-      resourceLabel: archivedStoreType.name,
-      metadataJson: {
-        code: archivedStoreType.code,
-      },
-    });
+    await Promise.all([
+      this.auditService.logAction({
+        actorType: AuditActorType.USER,
+        actorUserId: currentUser.userId,
+        actorRole: currentUser.role,
+        actionSource: AuditActionSource.API,
+        action: 'store_types.archived',
+        resourceType: AuditResourceType.STORE_TYPE,
+        resourceId: archivedStoreType.id,
+        resourceLabel: archivedStoreType.name,
+        metadataJson: {
+          code: archivedStoreType.code,
+        },
+      }),
+      this.storeTypeCache.invalidateOne(archivedStoreType.id, archivedStoreType.code),
+      this.discoveryCache.invalidateAll(),
+    ]);
 
     return toStoreTypeDto(archivedStoreType);
   }
@@ -212,19 +232,23 @@ export class StoreTypeManagementService {
       },
     );
 
-    await this.auditService.logAction({
-      actorType: AuditActorType.USER,
-      actorUserId: currentUser.userId,
-      actorRole: currentUser.role,
-      actionSource: AuditActionSource.API,
-      action: 'store_types.activated',
-      resourceType: AuditResourceType.STORE_TYPE,
-      resourceId: activatedStoreType.id,
-      resourceLabel: activatedStoreType.name,
-      metadataJson: {
-        code: activatedStoreType.code,
-      },
-    });
+    await Promise.all([
+      this.auditService.logAction({
+        actorType: AuditActorType.USER,
+        actorUserId: currentUser.userId,
+        actorRole: currentUser.role,
+        actionSource: AuditActionSource.API,
+        action: 'store_types.activated',
+        resourceType: AuditResourceType.STORE_TYPE,
+        resourceId: activatedStoreType.id,
+        resourceLabel: activatedStoreType.name,
+        metadataJson: {
+          code: activatedStoreType.code,
+        },
+      }),
+      this.storeTypeCache.invalidateOne(activatedStoreType.id, activatedStoreType.code),
+      this.discoveryCache.invalidateAll(),
+    ]);
 
     return toStoreTypeDto(activatedStoreType);
   }
@@ -443,22 +467,25 @@ export class StoreTypeManagementService {
       return this.requireBranchStoreType(branchId, storeTypeId, tx);
     });
 
-    await this.auditService.logAction({
-      actorType: AuditActorType.USER,
-      actorUserId: currentUser.userId,
-      actorRole: currentUser.role,
-      actionSource: AuditActionSource.API,
-      action: auditAction,
-      resourceType: AuditResourceType.BRANCH_STORE_TYPE,
-      resourceId: `${branchId}:${storeTypeId}`,
-      resourceLabel: assignment.storeType.name,
-      branchId,
-      metadataJson: {
-        status: assignment.status,
-        isPrimary: assignment.isPrimary,
-        reason: assignment.reason,
-      },
-    });
+    await Promise.all([
+      this.auditService.logAction({
+        actorType: AuditActorType.USER,
+        actorUserId: currentUser.userId,
+        actorRole: currentUser.role,
+        actionSource: AuditActionSource.API,
+        action: auditAction,
+        resourceType: AuditResourceType.BRANCH_STORE_TYPE,
+        resourceId: `${branchId}:${storeTypeId}`,
+        resourceLabel: assignment.storeType.name,
+        branchId,
+        metadataJson: {
+          status: assignment.status,
+          isPrimary: assignment.isPrimary,
+          reason: assignment.reason,
+        },
+      }),
+      this.discoveryCache.invalidateAll(),
+    ]);
 
     return toBranchStoreTypeDto(assignment);
   }
@@ -467,14 +494,28 @@ export class StoreTypeManagementService {
     storeTypeId: string,
     client?: Parameters<StoreTypesRepository['findStoreTypeById']>[1],
   ) {
+    // Skip cache when running inside a transaction (client is not the default
+    // PrismaService) — we need the DB's in-progress view, not a stale snapshot.
+    if (client === undefined) {
+      const cached = await this.storeTypeCache.getById(storeTypeId);
+      if (cached !== null) {
+        return cached;
+      }
+    }
+
     const storeType = await this.storeTypesRepository.findStoreTypeById(
       storeTypeId,
       client,
     );
+
     if (storeType === null) {
       throw new AppException('Store type was not found.', HttpStatus.NOT_FOUND, {
         code: ErrorCodes.notFound,
       });
+    }
+
+    if (client === undefined) {
+      await this.storeTypeCache.setById(storeType);
     }
 
     return storeType;

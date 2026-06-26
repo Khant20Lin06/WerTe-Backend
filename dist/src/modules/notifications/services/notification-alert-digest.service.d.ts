@@ -1,0 +1,44 @@
+import { AppLogger } from '../../../infrastructure/logging/app.logger';
+import { QueueService } from '../../../infrastructure/queue/queue.service';
+import { AuditService } from '../../audit/services/audit.service';
+import { UsersService } from '../../users/services/users.service';
+import { NotificationsRepository } from '../repositories/notifications.repository';
+import { NotificationPreferencesService } from './notification-preferences.service';
+import { NotificationsService } from './notifications.service';
+type InventoryAlertDigestRunResult = {
+    attentionAlertsScanned: number;
+    merchantReminderDigestCount: number;
+    reminderSourceAlertCount: number;
+    adminEscalationDigestCount: number;
+    escalationSourceAlertCount: number;
+};
+export declare class NotificationAlertDigestService {
+    private readonly notificationsRepository;
+    private readonly notificationsService;
+    private readonly notificationPreferencesService;
+    private readonly queueService;
+    private readonly auditService;
+    private readonly usersService;
+    private readonly logger;
+    private static readonly scanLimit;
+    private static readonly merchantReminderAgeMs;
+    private static readonly merchantReminderCooldownMs;
+    private static readonly adminEscalationAgeMs;
+    private static readonly adminEscalationCooldownMs;
+    constructor(notificationsRepository: NotificationsRepository, notificationsService: NotificationsService, notificationPreferencesService: NotificationPreferencesService, queueService: QueueService, auditService: AuditService, usersService: UsersService, logger: AppLogger);
+    runDigestCycle(at?: Date): Promise<InventoryAlertDigestRunResult>;
+    private groupByMerchantAndBranch;
+    private buildLatestLifecycleLogMap;
+    private buildLatestActionLogMap;
+    private resolveInventoryAlertStatus;
+    private isOlderThan;
+    private hasRecentLog;
+    private buildMerchantReminderTitle;
+    private buildMerchantReminderBody;
+    private buildAdminEscalationTitle;
+    private buildAdminEscalationBody;
+    private buildLabelPreview;
+    private resolveOldestCreatedAt;
+    private recordMerchantReminderDeliveries;
+}
+export {};

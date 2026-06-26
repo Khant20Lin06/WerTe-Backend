@@ -15,7 +15,12 @@ import { NotificationsSocketAuthService } from '../services/notifications-socket
 @WebSocketGateway({
   namespace: '/notifications',
   cors: {
-    origin: '*',
+    origin: process.env.APP_CORS_ORIGINS
+      ? process.env.APP_CORS_ORIGINS.split(',').map((o) => o.trim())
+      : process.env.NODE_ENV === 'production'
+        ? false
+        : true,
+    credentials: true,
   },
 })
 export class NotificationsGateway implements OnGatewayInit, OnGatewayConnection {

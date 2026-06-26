@@ -9,6 +9,7 @@ import {
 
 import { ErrorCodes } from '../../../common/constants/error-codes';
 import { AppException } from '../../../common/exceptions/app.exception';
+import { asJsonObject } from '../../../common/utils/prisma-json.util';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { AuthenticatedUserEntity } from '../../auth/entities/authenticated-user.entity';
 import { SystemMessageService } from '../../messaging/services/system-message.service';
@@ -49,25 +50,11 @@ type PaymentLifecycleOptions = {
   skipAdminFinanceAccess?: boolean;
 };
 
-const CONFIRMABLE_PAYMENT_STATUSES = new Set<PaymentStatus>([
+const IN_PROGRESS_PAYMENT_STATUSES = new Set<PaymentStatus>([
   PaymentStatus.PENDING,
   PaymentStatus.REQUIRES_ACTION,
   PaymentStatus.PROCESSING,
 ]);
-
-const FAILABLE_PAYMENT_STATUSES = new Set<PaymentStatus>([
-  PaymentStatus.PENDING,
-  PaymentStatus.REQUIRES_ACTION,
-  PaymentStatus.PROCESSING,
-]);
-
-const CANCELLABLE_PAYMENT_STATUSES = new Set<PaymentStatus>([
-  PaymentStatus.PENDING,
-  PaymentStatus.REQUIRES_ACTION,
-  PaymentStatus.PROCESSING,
-]);
-
-const EXPIRABLE_PAYMENT_STATUSES = CANCELLABLE_PAYMENT_STATUSES;
 
 @Injectable()
 export class PaymentLifecycleService {
@@ -92,7 +79,7 @@ export class PaymentLifecycleService {
         targetStatus: PaymentStatus.SUCCEEDED,
         systemMessageCode: SystemMessageCode.PAYMENT_SUCCEEDED,
         conflictMessage: 'This payment can no longer be confirmed.',
-        allowedFrom: CONFIRMABLE_PAYMENT_STATUSES,
+        allowedFrom: IN_PROGRESS_PAYMENT_STATUSES,
         defaultReasonCode: 'payment_succeeded',
       },
       options,
@@ -111,7 +98,7 @@ export class PaymentLifecycleService {
         targetStatus: PaymentStatus.FAILED,
         systemMessageCode: SystemMessageCode.PAYMENT_FAILED,
         conflictMessage: 'This payment can no longer be marked as failed.',
-        allowedFrom: FAILABLE_PAYMENT_STATUSES,
+        allowedFrom: IN_PROGRESS_PAYMENT_STATUSES,
         defaultReasonCode: 'payment_failed',
       },
       options,
@@ -130,7 +117,7 @@ export class PaymentLifecycleService {
         targetStatus: PaymentStatus.CANCELLED,
         systemMessageCode: SystemMessageCode.PAYMENT_CANCELLED,
         conflictMessage: 'This payment can no longer be cancelled.',
-        allowedFrom: CANCELLABLE_PAYMENT_STATUSES,
+        allowedFrom: IN_PROGRESS_PAYMENT_STATUSES,
         defaultReasonCode: 'payment_cancelled',
       },
       options,
@@ -149,7 +136,7 @@ export class PaymentLifecycleService {
         targetStatus: PaymentStatus.EXPIRED,
         systemMessageCode: SystemMessageCode.PAYMENT_CANCELLED,
         conflictMessage: 'This payment can no longer be expired.',
-        allowedFrom: EXPIRABLE_PAYMENT_STATUSES,
+        allowedFrom: IN_PROGRESS_PAYMENT_STATUSES,
         defaultReasonCode: 'payment_expired',
       },
       options,
@@ -436,8 +423,8 @@ export class PaymentLifecycleService {
     },
   ): Prisma.InputJsonValue {
     return {
-      ...(this.asJsonObject(existingMetadata) ?? {}),
-      ...(this.asJsonObject(nextMetadata) ?? {}),
+      ...(asJsonObject(existingMetadata) ?? {}),
+      ...(asJsonObject(nextMetadata) ?? {}),
       lastLifecycleEvent: {
         actorUserId: lifecycleEvent.actorUserId,
         reasonCode: lifecycleEvent.reasonCode,
@@ -448,13 +435,4 @@ export class PaymentLifecycleService {
     };
   }
 
-  private asJsonObject(
-    value: Prisma.JsonValue | Prisma.InputJsonValue | null | undefined,
-  ): Record<string, Prisma.JsonValue | Prisma.InputJsonValue> | null {
-    if (value == null || typeof value !== 'object' || Array.isArray(value)) {
-      return null;
-    }
-
-    return value as Record<string, Prisma.JsonValue | Prisma.InputJsonValue>;
-  }
 }

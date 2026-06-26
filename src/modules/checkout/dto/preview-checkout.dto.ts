@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class PreviewCheckoutDto {
   @ApiProperty({
@@ -19,6 +19,16 @@ export class PreviewCheckoutDto {
   @IsString()
   @MaxLength(191)
   addressId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Delivery type for the preview. PICKUP orders have zero delivery fee and no address.',
+    example: 'DELIVERY',
+    enum: ['DELIVERY', 'PICKUP'],
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(['DELIVERY', 'PICKUP'])
+  deliveryType?: 'DELIVERY' | 'PICKUP';
 
   @ApiPropertyOptional({
     description:

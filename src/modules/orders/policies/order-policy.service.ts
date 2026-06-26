@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { OrderStatus, UserRole } from '@prisma/client';
+import { DeliveryType, OrderStatus, UserRole } from '@prisma/client';
 
 import {
   hasRole,
@@ -99,10 +99,13 @@ export class OrderPolicyService {
     currentUser: AuthenticatedUserEntity,
     order: OrderSummaryEntity,
   ): boolean {
-    return (
-      hasMerchantOrderAccess({ currentUser, order }) &&
-      order.status === OrderStatus.MERCHANT_ACCEPTED
-    );
+    if (!hasMerchantOrderAccess({ currentUser, order })) return false;
+    // PICKUP: no rider step, so merchant can prepare straight after accepting
+    if (order.deliveryType === DeliveryType.PICKUP) {
+      return order.status === OrderStatus.MERCHANT_ACCEPTED;
+    }
+    // DELIVERY: rider must have accepted before merchant starts preparing
+    return order.status === OrderStatus.RIDER_ACCEPTED;
   }
 
   canMarkReady(
@@ -141,7 +144,7 @@ export class OrderPolicyService {
   ): boolean {
     return (
       hasRiderOrderAccess({ currentUser, order }) &&
-      order.status === OrderStatus.RIDER_ACCEPTED
+      order.status === OrderStatus.READY
     );
   }
 
@@ -185,8 +188,8 @@ export class OrderPolicyService {
   ): boolean {
     return (
       this.canViewAdminOrders(currentUser) &&
-      (order.status === OrderStatus.PREPARING ||
-        order.status === OrderStatus.READY)
+      (order.status === OrderStatus.MERCHANT_ACCEPTED ||
+        order.status === OrderStatus.RIDER_ASSIGNED)
     );
   }
 
@@ -197,6 +200,17 @@ export class OrderPolicyService {
     return (
       this.canViewAdminOrders(currentUser) &&
       ADMIN_CANCELLABLE_STATUSES.has(order.status)
+    );
+  }
+
+  canMerchantConfirmPickup(
+    currentUser: AuthenticatedUserEntity,
+    order: OrderSummaryEntity,
+  ): boolean {
+    return (
+      hasMerchantOrderAccess({ currentUser, order }) &&
+      order.deliveryType === DeliveryType.PICKUP &&
+      order.status === OrderStatus.READY
     );
   }
 }

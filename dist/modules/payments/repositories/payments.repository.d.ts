@@ -1,0 +1,87 @@
+import { PaymentMethod, PaymentProvider, PaymentStatus, Prisma, ProviderEventProcessingStatus, ProviderEventVerificationStatus } from '@prisma/client';
+import { PrismaService } from '../../../infrastructure/database/prisma.service';
+import { CheckoutPaymentIntentRecord } from '../entities/checkout-payment-intent.entity';
+import { PaymentAttemptRecord } from '../entities/payment-attempt.entity';
+import { PaymentProviderEventRecord } from '../entities/payment-provider-event.entity';
+import { PaymentSummaryRecord } from '../entities/payment-summary.entity';
+type PaymentDatabaseClient = PrismaService | Prisma.TransactionClient;
+export declare class PaymentsRepository {
+    private readonly prisma;
+    constructor(prisma: PrismaService);
+    findById(paymentId: string, client?: PaymentDatabaseClient): Promise<PaymentSummaryRecord | null>;
+    findOrderPayment(orderId: string, paymentId: string, client?: PaymentDatabaseClient): Promise<PaymentSummaryRecord | null>;
+    findCustomerPayment(customerProfileId: string, paymentId: string, client?: PaymentDatabaseClient): Promise<PaymentSummaryRecord | null>;
+    findOrderPayments(orderId: string, client?: PaymentDatabaseClient): Promise<PaymentSummaryRecord[]>;
+    findCustomerOrderPayments(orderId: string, customerProfileId: string, client?: PaymentDatabaseClient): Promise<PaymentSummaryRecord[]>;
+    findLatestOrderPayment(orderId: string, client?: PaymentDatabaseClient): Promise<PaymentSummaryRecord | null>;
+    findLatestByProviderReference(provider: PaymentProvider, providerReference: string, client?: PaymentDatabaseClient): Promise<PaymentSummaryRecord | null>;
+    findPaymentAttempts(paymentId: string, client?: PaymentDatabaseClient): Promise<PaymentAttemptRecord[]>;
+    findCheckoutPaymentIntentByIdempotencyKey(idempotencyKey: string, client?: PaymentDatabaseClient): Promise<CheckoutPaymentIntentRecord | null>;
+    createCheckoutPaymentIntent(payload: {
+        orderId: string;
+        customerProfileId: string;
+        method: PaymentMethod;
+        provider: PaymentProvider;
+        status: PaymentStatus;
+        amount: Prisma.Decimal;
+        currencyCode: string;
+        idempotencyKey: string;
+        metadataJson?: Prisma.InputJsonValue;
+        requiresActionAt?: Date | null;
+        requestPayloadJson?: Prisma.InputJsonValue;
+        responsePayloadJson?: Prisma.InputJsonValue;
+    }, client?: PaymentDatabaseClient): Promise<CheckoutPaymentIntentRecord>;
+    transitionPaymentStatus(payload: {
+        paymentId: string;
+        provider: PaymentProvider;
+        status: PaymentStatus;
+        metadataJson?: Prisma.InputJsonValue;
+        providerReference?: string | null;
+        providerReceiptId?: string | null;
+        failureCode?: string | null;
+        failureMessage?: string | null;
+        requestPayloadJson?: Prisma.InputJsonValue;
+        responsePayloadJson?: Prisma.InputJsonValue;
+        occurredAt?: Date;
+    }, client?: PaymentDatabaseClient): Promise<PaymentSummaryRecord>;
+    updateRefundState(payload: {
+        paymentId: string;
+        refundedAmount: Prisma.Decimal;
+        status: PaymentStatus;
+    }, client?: PaymentDatabaseClient): Promise<PaymentSummaryRecord>;
+    findPaymentProviderEventByProviderEventId(provider: PaymentProvider, providerEventId: string, client?: PaymentDatabaseClient): Promise<PaymentProviderEventRecord | null>;
+    findPaymentProviderEventById(paymentProviderEventId: string, client?: PaymentDatabaseClient): Promise<PaymentProviderEventRecord | null>;
+    listProcessablePaymentProviderEvents(limit?: number, client?: PaymentDatabaseClient): Promise<PaymentProviderEventRecord[]>;
+    createPaymentProviderEvent(payload: {
+        provider: PaymentProvider;
+        providerEventId?: string | null;
+        eventType: string;
+        paymentId?: string | null;
+        orderId?: string | null;
+        providerReference?: string | null;
+        normalizedStatus?: PaymentStatus | null;
+        verificationStatus: ProviderEventVerificationStatus;
+        processingStatus: ProviderEventProcessingStatus;
+        signatureHeader?: string | null;
+        headersJson?: Prisma.InputJsonValue;
+        rawPayloadJson: Prisma.InputJsonValue;
+        normalizedPayloadJson?: Prisma.InputJsonValue;
+        processingMetadataJson?: Prisma.InputJsonValue;
+        failureCode?: string | null;
+        failureMessage?: string | null;
+        receivedAt?: Date;
+        failedAt?: Date | null;
+    }, client?: PaymentDatabaseClient): Promise<PaymentProviderEventRecord>;
+    updatePaymentProviderEventProcessingState(payload: {
+        paymentProviderEventId: string;
+        processingStatus: ProviderEventProcessingStatus;
+        paymentId?: string | null;
+        orderId?: string | null;
+        providerReference?: string | null;
+        processingMetadataJson?: Prisma.InputJsonValue;
+        failureCode?: string | null;
+        failureMessage?: string | null;
+        occurredAt?: Date;
+    }, client?: PaymentDatabaseClient): Promise<PaymentProviderEventRecord>;
+}
+export {};

@@ -14,6 +14,7 @@ import { UpdateBranchDto } from '../dto/update-branch.dto';
 import { BranchOwnershipRecord } from '../entities/branch-ownership.entity';
 import { BranchPolicyService } from '../policies/branch-policy.service';
 import { BranchesRepository } from '../repositories/branches.repository';
+import { BranchesService } from './branches.service';
 
 @Injectable()
 export class MerchantBranchesService {
@@ -21,6 +22,7 @@ export class MerchantBranchesService {
     private readonly prisma: PrismaService,
     private readonly merchantAccountService: MerchantAccountService,
     private readonly branchesRepository: BranchesRepository,
+    private readonly branchesService: BranchesService,
     private readonly branchPolicyService: BranchPolicyService,
     private readonly zonesService: ZonesService,
   ) {}
@@ -29,7 +31,7 @@ export class MerchantBranchesService {
     currentUser: AuthenticatedUserEntity,
   ): Promise<BranchDto[]> {
     const merchant = await this.resolveCurrentMerchant(currentUser);
-    const branches = await this.branchesRepository.listByMerchantId(merchant.id);
+    const branches = await this.branchesService.listByMerchantId(merchant.id);
 
     return branches.map((branch) => toBranchDto(branch));
   }
@@ -68,7 +70,7 @@ export class MerchantBranchesService {
           storeType,
           status: payload.status,
           ...(payload.operatingHours !== undefined
-            ? { operatingHours: (payload.operatingHours ?? Prisma.JsonNull) as any }
+            ? { operatingHours: (payload.operatingHours ?? Prisma.JsonNull) as Prisma.InputJsonValue }
             : {}),
         },
         tx,
@@ -90,6 +92,9 @@ export class MerchantBranchesService {
         },
       );
     }
+
+    // New branch — evict the merchant's branch list so it reflects the addition.
+    await this.branchesService.invalidateCache(branch.id, merchant.id);
 
     return toBranchDto(branch);
   }
@@ -132,7 +137,7 @@ export class MerchantBranchesService {
           ...(storeType !== undefined ? { storeType } : {}),
           ...(payload.status !== undefined ? { status: payload.status } : {}),
           ...(payload.operatingHours !== undefined
-            ? { operatingHours: (payload.operatingHours ?? Prisma.JsonNull) as any }
+            ? { operatingHours: (payload.operatingHours ?? Prisma.JsonNull) as Prisma.InputJsonValue }
             : {}),
         },
         tx,
@@ -155,6 +160,8 @@ export class MerchantBranchesService {
         },
       );
     }
+
+    await this.branchesService.invalidateCache(updatedBranch.id, updatedBranch.merchant.id);
 
     return toBranchDto(updatedBranch);
   }

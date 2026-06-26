@@ -14,6 +14,7 @@ import { AuthenticatedUserEntity } from '../../../../src/modules/auth/entities/a
 import { BranchOwnershipRecord } from '../../../../src/modules/branches/entities/branch-ownership.entity';
 import { BranchPolicyService } from '../../../../src/modules/branches/policies/branch-policy.service';
 import { BranchesRepository } from '../../../../src/modules/branches/repositories/branches.repository';
+import { BranchesService } from '../../../../src/modules/branches/services/branches.service';
 import { MerchantBranchesService } from '../../../../src/modules/branches/services/merchant-branches.service';
 import { MerchantOwnershipRecord } from '../../../../src/modules/merchants/entities/merchant-ownership.entity';
 import { MerchantAccountService } from '../../../../src/modules/merchants/services/merchant-account.service';
@@ -115,6 +116,10 @@ describe('MerchantBranchesService', () => {
         resolveOwnedMerchant: jest.fn().mockResolvedValue(merchantRecord),
       } as unknown as MerchantAccountService,
       branchesRepository,
+      {
+        listByMerchantId: jest.fn().mockResolvedValue([]),
+        invalidateCache: jest.fn().mockResolvedValue(undefined),
+      } as unknown as BranchesService,
       new BranchPolicyService(),
       {
         listByIds: jest.fn().mockResolvedValue([
@@ -173,6 +178,10 @@ describe('MerchantBranchesService', () => {
         resolveOwnedMerchant: jest.fn().mockResolvedValue(merchantRecord),
       } as unknown as MerchantAccountService,
       branchesRepository,
+      {
+        listByMerchantId: jest.fn().mockResolvedValue([]),
+        invalidateCache: jest.fn().mockResolvedValue(undefined),
+      } as unknown as BranchesService,
       new BranchPolicyService(),
       {
         listByIds: jest.fn().mockResolvedValue([]),
@@ -201,6 +210,10 @@ describe('MerchantBranchesService', () => {
         resolveOwnedMerchant: jest.fn().mockResolvedValue(merchantRecord),
       } as unknown as MerchantAccountService,
       {} as BranchesRepository,
+      {
+        listByMerchantId: jest.fn().mockResolvedValue([]),
+        invalidateCache: jest.fn().mockResolvedValue(undefined),
+      } as unknown as BranchesService,
       new BranchPolicyService(),
       {
         listByIds: jest.fn().mockResolvedValue([
@@ -244,6 +257,10 @@ describe('MerchantBranchesService', () => {
         resolveOwnedMerchant: jest.fn().mockResolvedValue(merchantRecord),
       } as unknown as MerchantAccountService,
       branchesRepository,
+      {
+        listByMerchantId: jest.fn().mockResolvedValue([]),
+        invalidateCache: jest.fn().mockResolvedValue(undefined),
+      } as unknown as BranchesService,
       new BranchPolicyService(),
       {
         listByIds: jest.fn().mockResolvedValue([

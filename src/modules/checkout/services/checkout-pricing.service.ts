@@ -35,10 +35,15 @@ export class CheckoutPricingService {
         branchId: context.branch.branchId,
         subtotalAmount,
         promotionCode: options?.promotionCode,
+        customerProfileId: context.customer.customerProfileId,
       });
     const discountAmount =
       promotionApplication?.discountAmount ?? new Prisma.Decimal(0);
-    const deliveryFee = new Prisma.Decimal(0);
+    // PICKUP orders have zero delivery fee; DELIVERY uses fixed fee until zone-based pricing is implemented
+    const isPickup = context.address === null;
+    const deliveryFeeWaived = promotionApplication?.deliveryFeeWaived === true;
+    const deliveryFee =
+      isPickup || deliveryFeeWaived ? new Prisma.Decimal(0) : new Prisma.Decimal(1500);
     const totalAmount = subtotalAmount.sub(discountAmount).add(deliveryFee);
 
     return {

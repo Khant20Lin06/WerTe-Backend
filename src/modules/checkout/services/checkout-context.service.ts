@@ -16,6 +16,7 @@ import { CheckoutValidationService } from './checkout-validation.service';
 export type ResolveCheckoutContextInput = {
   branchId: string;
   addressId?: string;
+  deliveryType?: 'DELIVERY' | 'PICKUP';
 };
 
 @Injectable()
@@ -32,11 +33,11 @@ export class CheckoutContextService {
     currentUser: AuthenticatedUserEntity,
     input: ResolveCheckoutContextInput,
   ): Promise<CheckoutContextEntity> {
+    const isPickup = input.deliveryType === 'PICKUP';
     const customerProfile = await this.resolveCurrentCustomerProfile(currentUser);
-    const address = await this.resolveCheckoutAddress(
-      customerProfile,
-      input.addressId,
-    );
+    const address = isPickup
+      ? null
+      : await this.resolveCheckoutAddress(customerProfile, input.addressId);
     const [branch, cart] = await Promise.all([
       this.resolveBranch(input.branchId),
       this.cartQueryService.getOwnedActiveCartAggregateOrEmpty(

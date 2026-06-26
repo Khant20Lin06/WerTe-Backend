@@ -2,6 +2,7 @@ import { HttpStatus } from '@nestjs/common';
 import { RiderStatus, UserRole, UserStatus } from '@prisma/client';
 
 import { makeAuthenticatedUser } from '../../helpers/authenticated-user.factory';
+import { QueueService } from '../../../../src/infrastructure/queue/queue.service';
 import { RiderOwnershipRecord } from '../../../../src/modules/riders/entities/rider-ownership.entity';
 import { RidersRepository } from '../../../../src/modules/riders/repositories/riders.repository';
 import { RiderAccountService } from '../../../../src/modules/riders/services/rider-account.service';
@@ -48,9 +49,11 @@ describe('RiderAvailabilityService', () => {
     const ridersRepository = {
       upsertAvailability: jest.fn(),
     } as unknown as jest.Mocked<RidersRepository>;
+    const queueService = { add: jest.fn().mockResolvedValue(undefined) } as unknown as jest.Mocked<QueueService>;
     const service = new RiderAvailabilityService(
       riderAccountService,
       ridersRepository,
+      queueService,
     );
 
     return { riderAccountService, ridersRepository, service };

@@ -5,14 +5,16 @@ import { ZonesModule } from '../zones/zones.module';
 import { MerchantBranchesController } from './controllers/merchant-branches.controller';
 import { BranchPolicyService } from './policies/branch-policy.service';
 import { BranchesRepository } from './repositories/branches.repository';
-import { MerchantBranchesService } from './services/merchant-branches.service';
+import { BranchCacheService } from './services/branch-cache.service';
 import { BranchesService } from './services/branches.service';
+import { MerchantBranchesService } from './services/merchant-branches.service';
 
 @Module({
   imports: [MerchantsModule, ZonesModule],
   controllers: [MerchantBranchesController],
   providers: [
     BranchesRepository,
+    BranchCacheService,
     BranchesService,
     MerchantBranchesService,
     BranchPolicyService,

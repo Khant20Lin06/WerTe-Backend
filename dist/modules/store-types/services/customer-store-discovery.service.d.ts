@@ -1,0 +1,32 @@
+import { PrismaService } from '../../../infrastructure/database/prisma.service';
+import { AuthenticatedUserEntity } from '../../auth/entities/authenticated-user.entity';
+import { CustomerCatalogReadService } from '../../menus/services/customer-catalog-read.service';
+import { CustomerStoreCatalogEntryDto } from '../dto/customer-store-catalog-entry.dto';
+import { CustomerStoreDetailDto } from '../dto/customer-store-detail.dto';
+import { CustomerStoreFacetsDto } from '../dto/customer-store-facets.dto';
+import { GetCustomerStoreCatalogQueryDto } from '../dto/get-customer-store-catalog-query.dto';
+import { CustomerStoreSummaryDto } from '../dto/customer-store-summary.dto';
+import { ListCustomerStoresQueryDto } from '../dto/list-customer-stores-query.dto';
+import { StoreTypesRepository } from '../repositories/store-types.repository';
+import { DiscoveryCacheService } from './discovery-cache.service';
+export declare class CustomerStoreDiscoveryService {
+    private readonly storeTypesRepository;
+    private readonly customerCatalogReadService;
+    private readonly discoveryCache;
+    private readonly prisma;
+    constructor(storeTypesRepository: StoreTypesRepository, customerCatalogReadService: CustomerCatalogReadService, discoveryCache: DiscoveryCacheService, prisma: PrismaService);
+    listDiscoverableStores(currentUser: AuthenticatedUserEntity, query: ListCustomerStoresQueryDto): Promise<CustomerStoreSummaryDto[]>;
+    getDiscoverableStoreFacets(currentUser: AuthenticatedUserEntity, query: ListCustomerStoresQueryDto): Promise<CustomerStoreFacetsDto>;
+    getDiscoverableStoreDetail(currentUser: AuthenticatedUserEntity, branchId: string): Promise<CustomerStoreDetailDto>;
+    getDiscoverableStoreCatalogEntry(currentUser: AuthenticatedUserEntity, branchId: string, query: GetCustomerStoreCatalogQueryDto): Promise<CustomerStoreCatalogEntryDto>;
+    private fetchBranchRatingMap;
+    private fetchSingleBranchRating;
+    private assertCanDiscoverStores;
+    private toCustomerStoreSummary;
+    private findDiscoverableBranches;
+    private findDiscoverableBranchOrThrow;
+    private resolveSelectedCatalogEntry;
+    private sortBranches;
+    private normalizeStoreTypeCodes;
+    private normalizeOptionalString;
+}

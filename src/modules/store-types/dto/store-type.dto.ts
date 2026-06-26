@@ -101,8 +101,8 @@ export function toStoreTypeDto(storeType: StoreTypeManagementRecord): StoreTypeD
     branchAssignmentCount: storeType._count.branchAssignments,
     branchPrimaryCount: storeType._count.branchPrimaries,
     merchantPrimaryCount: storeType._count.merchantPrimaries,
-    deletedAt: storeType.deletedAt?.toISOString() ?? null,
-    createdAt: storeType.createdAt.toISOString(),
-    updatedAt: storeType.updatedAt.toISOString(),
+    deletedAt: storeType.deletedAt ? new Date(storeType.deletedAt).toISOString() : null,
+    createdAt: new Date(storeType.createdAt).toISOString(),
+    updatedAt: new Date(storeType.updatedAt).toISOString(),
   };
 }

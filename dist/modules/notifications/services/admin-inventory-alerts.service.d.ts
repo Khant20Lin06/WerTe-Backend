@@ -1,0 +1,31 @@
+import { AuditService } from '../../audit/services/audit.service';
+import { AuthenticatedUserEntity } from '../../auth/entities/authenticated-user.entity';
+import { AdminInventoryAlertDto } from '../dto/admin-inventory-alert.dto';
+import { AcknowledgeInventoryAlertDto } from '../dto/acknowledge-inventory-alert.dto';
+import { BulkAcknowledgeInventoryAlertsDto } from '../dto/bulk-acknowledge-inventory-alerts.dto';
+import { BulkAcknowledgeInventoryAlertsResponseDto } from '../dto/bulk-acknowledge-inventory-alerts-response.dto';
+import { BulkDismissInventoryAlertsDto } from '../dto/bulk-dismiss-inventory-alerts.dto';
+import { BulkDismissInventoryAlertsResponseDto } from '../dto/bulk-dismiss-inventory-alerts-response.dto';
+import { ListAdminInventoryAlertsQueryDto } from '../dto/list-admin-inventory-alerts-query.dto';
+import { NotificationsRepository } from '../repositories/notifications.repository';
+export declare class AdminInventoryAlertsService {
+    private readonly notificationsRepository;
+    private readonly auditService;
+    constructor(notificationsRepository: NotificationsRepository, auditService: AuditService);
+    listInventoryAlerts(currentUser: AuthenticatedUserEntity, query: ListAdminInventoryAlertsQueryDto): Promise<AdminInventoryAlertDto[]>;
+    acknowledgeInventoryAlert(currentUser: AuthenticatedUserEntity, notificationId: string, payload: AcknowledgeInventoryAlertDto): Promise<AdminInventoryAlertDto>;
+    resolveInventoryAlert(currentUser: AuthenticatedUserEntity, notificationId: string, payload: AcknowledgeInventoryAlertDto): Promise<AdminInventoryAlertDto>;
+    bulkAcknowledgeInventoryAlerts(currentUser: AuthenticatedUserEntity, payload: BulkAcknowledgeInventoryAlertsDto): Promise<BulkAcknowledgeInventoryAlertsResponseDto>;
+    bulkDismissInventoryAlerts(currentUser: AuthenticatedUserEntity, payload: BulkDismissInventoryAlertsDto): Promise<BulkDismissInventoryAlertsResponseDto>;
+    private assertAdmin;
+    private matchesQuery;
+    private findResolvedInventoryAlertsByIds;
+    private buildLatestLifecycleLogMap;
+    private logInventoryAlertLifecycleAction;
+    private logInventoryAlertAcknowledgement;
+    private resolveInventoryAlertStatus;
+    private toAdminInventoryAlertDto;
+    private readMetadataString;
+    private normalizeOptionalString;
+    private normalizeNotificationIds;
+}

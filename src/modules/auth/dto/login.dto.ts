@@ -15,8 +15,10 @@ export class LoginDto {
     description: 'Password credential for the actor account.',
     example: 'strong-password',
     minLength: 6,
+    maxLength: 128,
   })
   @IsString()
   @MinLength(6)
+  @MaxLength(128)
   password!: string;
 }

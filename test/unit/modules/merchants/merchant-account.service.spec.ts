@@ -96,6 +96,7 @@ describe('MerchantAccountService', () => {
     const service = new MerchantAccountService(
       {
         findOwnedByUserId: jest.fn().mockResolvedValue(makeMerchant()),
+        invalidateCache: jest.fn().mockResolvedValue(undefined),
       } as unknown as MerchantsService,
       merchantsRepository,
       new MerchantPolicyService(),

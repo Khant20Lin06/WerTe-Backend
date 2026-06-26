@@ -15,6 +15,7 @@ export type PromotionPricingEvaluation = {
   name: string;
   discountType: PromotionDiscountType;
   discountAmount: Prisma.Decimal;
+  deliveryFeeWaived: boolean;
   appliedPromotion: AppliedPromotionEntity;
 };
 
@@ -26,6 +27,7 @@ export class PromotionPricingService {
     branchId: string;
     subtotalAmount: Prisma.Decimal;
     promotionCode?: string;
+    customerProfileId?: string;
   }): Promise<PromotionPricingEvaluation | null> {
     const normalizedCode = this.normalizePromotionCode(input.promotionCode);
     if (normalizedCode === null) {
@@ -90,32 +92,61 @@ export class PromotionPricingService {
           code: ErrorCodes.unprocessableEntity,
           details: {
             promotionId: promotion.id,
-            minimumSubtotalAmount:
-              promotion.minimumSubtotalAmount.toString(),
+            minimumSubtotalAmount: promotion.minimumSubtotalAmount.toString(),
             subtotalAmount: input.subtotalAmount.toString(),
           },
         },
       );
     }
 
-    const uncappedDiscount =
-      promotion.discountType === PromotionDiscountType.FIXED_AMOUNT
-        ? new Prisma.Decimal(promotion.discountValue)
-        : input.subtotalAmount
-            .mul(promotion.discountValue)
-            .div(new Prisma.Decimal(100));
+    if (
+      promotion.perCustomerLimit !== null &&
+      input.customerProfileId !== undefined
+    ) {
+      const usageCount = await this.promotionsRepository.countCustomerUsage(
+        promotion.id,
+        input.customerProfileId,
+      );
+      if (usageCount >= promotion.perCustomerLimit) {
+        throw new AppException(
+          'You have already used this promotion the maximum number of times.',
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          {
+            code: ErrorCodes.unprocessableEntity,
+            details: {
+              promotionId: promotion.id,
+              perCustomerLimit: promotion.perCustomerLimit,
+              usageCount,
+            },
+          },
+        );
+      }
+    }
 
-    const cappedDiscount =
-      promotion.maximumDiscountAmount === null
-        ? uncappedDiscount
-        : Prisma.Decimal.min(
-            uncappedDiscount,
-            new Prisma.Decimal(promotion.maximumDiscountAmount),
-          );
-    const discountAmount = Prisma.Decimal.min(
-      cappedDiscount,
-      input.subtotalAmount,
-    );
+    let discountAmount: Prisma.Decimal;
+    let deliveryFeeWaived = false;
+
+    if (promotion.discountType === PromotionDiscountType.FREE_DELIVERY) {
+      discountAmount = new Prisma.Decimal(0);
+      deliveryFeeWaived = true;
+    } else {
+      const uncappedDiscount =
+        promotion.discountType === PromotionDiscountType.FIXED_AMOUNT
+          ? new Prisma.Decimal(promotion.discountValue)
+          : input.subtotalAmount
+              .mul(promotion.discountValue)
+              .div(new Prisma.Decimal(100));
+
+      const cappedDiscount =
+        promotion.maximumDiscountAmount === null
+          ? uncappedDiscount
+          : Prisma.Decimal.min(
+              uncappedDiscount,
+              new Prisma.Decimal(promotion.maximumDiscountAmount),
+            );
+
+      discountAmount = Prisma.Decimal.min(cappedDiscount, input.subtotalAmount);
+    }
 
     return {
       promotionId: promotion.id,
@@ -123,6 +154,7 @@ export class PromotionPricingService {
       name: promotion.name,
       discountType: promotion.discountType,
       discountAmount,
+      deliveryFeeWaived,
       appliedPromotion: buildAppliedPromotionEntity({
         promotionId: promotion.id,
         code: promotion.code,

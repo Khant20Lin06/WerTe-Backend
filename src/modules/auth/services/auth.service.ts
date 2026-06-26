@@ -38,7 +38,11 @@ export class AuthService {
     private readonly passwordService: PasswordService,
   ) {}
 
-  async login(payload: LoginDto, metadata: SessionRequestMetadata = {}) {
+  async login(
+    payload: LoginDto,
+    metadata: SessionRequestMetadata = {},
+    appClient?: string,
+  ) {
     const user = await this.usersService.findByPhone(payload.phone);
     if (user === null) {
       throw this.invalidCredentialsException();
@@ -50,6 +54,43 @@ export class AuthService {
     );
     if (!passwordMatches) {
       throw this.invalidCredentialsException();
+    }
+
+    const client = appClient?.toLowerCase().trim();
+    if (client !== 'customer' && client !== 'rider' && client !== 'merchant' && client !== 'admin') {
+      throw new AppException(
+        'Missing or invalid X-App-Client header.',
+        HttpStatus.BAD_REQUEST,
+        { code: ErrorCodes.badRequest },
+      );
+    }
+    if (client === 'customer' && user.role !== 'CUSTOMER') {
+      throw new AppException(
+        'This app is for customers only. Please use the correct app for your account.',
+        HttpStatus.FORBIDDEN,
+        { code: ErrorCodes.forbidden },
+      );
+    }
+    if (client === 'rider' && user.role !== 'RIDER') {
+      throw new AppException(
+        'This app is for riders only. Please use the correct app for your account.',
+        HttpStatus.FORBIDDEN,
+        { code: ErrorCodes.forbidden },
+      );
+    }
+    if (client === 'merchant' && user.role !== 'MERCHANT') {
+      throw new AppException(
+        'This app is for merchant accounts only.',
+        HttpStatus.FORBIDDEN,
+        { code: ErrorCodes.forbidden },
+      );
+    }
+    if (client === 'admin' && user.role !== 'ADMIN') {
+      throw new AppException(
+        'This portal is for admin accounts only.',
+        HttpStatus.FORBIDDEN,
+        { code: ErrorCodes.forbidden },
+      );
     }
 
     if (this.usersService.isSuspended(user)) {

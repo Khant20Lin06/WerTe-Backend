@@ -1,6 +1,40 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { CustomerStoreDiscoveryRecord } from '../entities/customer-store-discovery.entity';
+
+export class CustomerStoreOperatingDayDto {
+  @ApiProperty({ example: true })
+  open!: boolean;
+
+  @ApiPropertyOptional({ example: '09:00' })
+  openTime?: string;
+
+  @ApiPropertyOptional({ example: '22:00' })
+  closeTime?: string;
+}
+
+export class CustomerStoreOperatingHoursDto {
+  @ApiPropertyOptional({ type: CustomerStoreOperatingDayDto })
+  mon?: CustomerStoreOperatingDayDto;
+
+  @ApiPropertyOptional({ type: CustomerStoreOperatingDayDto })
+  tue?: CustomerStoreOperatingDayDto;
+
+  @ApiPropertyOptional({ type: CustomerStoreOperatingDayDto })
+  wed?: CustomerStoreOperatingDayDto;
+
+  @ApiPropertyOptional({ type: CustomerStoreOperatingDayDto })
+  thu?: CustomerStoreOperatingDayDto;
+
+  @ApiPropertyOptional({ type: CustomerStoreOperatingDayDto })
+  fri?: CustomerStoreOperatingDayDto;
+
+  @ApiPropertyOptional({ type: CustomerStoreOperatingDayDto })
+  sat?: CustomerStoreOperatingDayDto;
+
+  @ApiPropertyOptional({ type: CustomerStoreOperatingDayDto })
+  sun?: CustomerStoreOperatingDayDto;
+}
 
 export class CustomerStoreTypeBadgeDto {
   @ApiProperty({
@@ -71,10 +105,38 @@ export class CustomerStoreSummaryDto {
     isArray: true,
   })
   approvedStoreTypes!: CustomerStoreTypeBadgeDto[];
+
+  @ApiPropertyOptional({
+    description: 'Average rating score for the branch (1-5). Null when no ratings exist.',
+    example: 4.5,
+    nullable: true,
+  })
+  averageRating!: number | null;
+
+  @ApiProperty({
+    description: 'Total number of ratings for the branch.',
+    example: 12,
+  })
+  reviewCount!: number;
+
+  @ApiProperty({
+    description: 'Whether the branch is currently open based on its operating hours.',
+    example: true,
+  })
+  isOpenNow!: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Operating hours per day of week. Null if not configured.',
+    type: CustomerStoreOperatingHoursDto,
+    nullable: true,
+  })
+  operatingHours!: CustomerStoreOperatingHoursDto | null;
 }
 
 export type CustomerStoreSummaryOptions = {
   preferredStoreTypeCodes?: string[];
+  averageRating?: number | null;
+  reviewCount?: number;
 };
 
 export function toCustomerStoreSummaryDto(
@@ -96,6 +158,8 @@ export function toCustomerStoreSummaryDto(
       preferredStoreTypeCodeSet.has(storeType.code.toLowerCase()),
     ) ?? approvedStoreTypes[0];
 
+  const operatingHours = branch.operatingHours as CustomerStoreOperatingHoursDto | null;
+
   return {
     branchId: branch.id,
     branchName: branch.name,
@@ -104,5 +168,23 @@ export function toCustomerStoreSummaryDto(
     township: branch.township,
     primaryStoreType,
     approvedStoreTypes,
+    averageRating: options?.averageRating ?? null,
+    reviewCount: options?.reviewCount ?? 0,
+    isOpenNow: computeIsOpenNow(operatingHours),
+    operatingHours,
   };
+}
+
+const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
+
+export function computeIsOpenNow(hours: CustomerStoreOperatingHoursDto | null): boolean {
+  if (!hours) return true;
+  const now = new Date();
+  const dayKey = DAY_KEYS[now.getDay()];
+  const day = hours[dayKey];
+  if (!day || !day.open) return false;
+  if (!day.openTime || !day.closeTime) return true;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const current = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  return current >= day.openTime && current <= day.closeTime;
 }

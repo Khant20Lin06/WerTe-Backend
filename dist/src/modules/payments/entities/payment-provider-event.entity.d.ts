@@ -1,0 +1,55 @@
+import { PaymentProvider, PaymentStatus, Prisma, ProviderEventProcessingStatus, ProviderEventVerificationStatus } from '@prisma/client';
+export declare const paymentProviderEventSelect: {
+    id: true;
+    provider: true;
+    providerEventId: true;
+    eventType: true;
+    paymentId: true;
+    orderId: true;
+    providerReference: true;
+    normalizedStatus: true;
+    verificationStatus: true;
+    processingStatus: true;
+    signatureHeader: true;
+    headersJson: true;
+    rawPayloadJson: true;
+    normalizedPayloadJson: true;
+    processingMetadataJson: true;
+    failureCode: true;
+    failureMessage: true;
+    receivedAt: true;
+    processedAt: true;
+    failedAt: true;
+    ignoredAt: true;
+    createdAt: true;
+    updatedAt: true;
+};
+export type PaymentProviderEventRecord = Prisma.PaymentProviderEventGetPayload<{
+    select: typeof paymentProviderEventSelect;
+}>;
+export declare class PaymentProviderEventEntity {
+    paymentProviderEventId: string;
+    provider: PaymentProvider;
+    providerEventId: string | null;
+    eventType: string;
+    paymentId: string | null;
+    orderId: string | null;
+    providerReference: string | null;
+    normalizedStatus: PaymentStatus | null;
+    verificationStatus: ProviderEventVerificationStatus;
+    processingStatus: ProviderEventProcessingStatus;
+    signatureHeader: string | null;
+    headers: Prisma.JsonValue | null;
+    rawPayload: Prisma.JsonValue;
+    normalizedPayload: Prisma.JsonValue | null;
+    processingMetadata: Prisma.JsonValue | null;
+    failureCode: string | null;
+    failureMessage: string | null;
+    receivedAt: string;
+    processedAt: string | null;
+    failedAt: string | null;
+    ignoredAt: string | null;
+    createdAt: string;
+    updatedAt: string;
+}
+export declare function buildPaymentProviderEventEntity(event: PaymentProviderEventRecord): PaymentProviderEventEntity;

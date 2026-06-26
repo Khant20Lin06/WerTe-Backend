@@ -1,4 +1,4 @@
-import { OrderStatus, Prisma } from '@prisma/client';
+import { DeliveryType, ItemOptionGroupKind, OrderStatus, Prisma, PromotionDiscountType } from '@prisma/client';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { CheckoutSubmissionRecord } from '../../checkout/entities/checkout-submission.entity';
 import { OrderDetailRecord, OrderTimelineEntryRecord } from '../entities/order-detail.entity';
@@ -8,25 +8,30 @@ type CreateCheckoutOrderInput = {
     orderCode: string;
     customerProfileId: string;
     branchId: string;
-    addressId: string;
+    addressId?: string | null;
     cartId: string;
     idempotencyKey: string;
+    deliveryType: DeliveryType;
+    promotionId?: string | null;
+    promotionCodeSnapshot?: string | null;
+    promotionNameSnapshot?: string | null;
+    promotionDiscountTypeSnapshot?: PromotionDiscountType | null;
     status: 'PLACED';
     currencyCode: string;
     subtotalAmount: Prisma.Decimal;
     discountAmount: Prisma.Decimal;
     deliveryFee: Prisma.Decimal;
     totalAmount: Prisma.Decimal;
-    deliveryLabel: string;
-    deliveryLine1: string;
+    deliveryLabel?: string | null;
+    deliveryLine1?: string | null;
     deliveryLine2?: string | null;
     deliveryLandmark?: string | null;
-    deliveryTownship: string;
+    deliveryTownship?: string | null;
     deliveryCity?: string | null;
     deliveryPostalCode?: string | null;
     deliveryInstructions?: string | null;
-    deliveryLatitude: Prisma.Decimal;
-    deliveryLongitude: Prisma.Decimal;
+    deliveryLatitude?: Prisma.Decimal | null;
+    deliveryLongitude?: Prisma.Decimal | null;
     changedByUserId: string;
     cartItems: Array<{
         menuItemId: string;
@@ -34,14 +39,26 @@ type CreateCheckoutOrderInput = {
         nameSnapshot: string;
         descriptionSnapshot?: string | null;
         imageUrlSnapshot?: string | null;
+        selectedVariantCombinationId?: string | null;
+        selectedVariantCombinationNameSnapshot?: string | null;
+        menuItemStockTrackedSnapshot: boolean;
+        variantCombinationStockTrackedSnapshot: boolean;
         unitBasePriceSnapshot: Prisma.Decimal;
         unitPriceSnapshot: Prisma.Decimal;
         quantity: number;
         lineTotal: Prisma.Decimal;
+        inventoryLotAllocations: Array<{
+            inventoryLotId: string;
+            batchNoSnapshot: string;
+            expiryDateSnapshot: string | null;
+            quantity: number;
+        }>;
         selectedOptions: Array<{
             itemOptionId: string;
             optionGroupId: string;
             optionGroupNameSnapshot: string;
+            optionGroupKindSnapshot: ItemOptionGroupKind;
+            itemOptionStockTrackedSnapshot: boolean;
             nameSnapshot: string;
             priceDeltaSnapshot: Prisma.Decimal;
         }>;
@@ -63,14 +80,18 @@ export declare class OrdersRepository {
     }): Prisma.Prisma__OrderClient<{
         status: import(".prisma/client").$Enums.OrderStatus;
         id: string;
-        addressId: string | null;
         updatedAt: Date;
-        customerProfileId: string;
-        deliveryInstructions: string | null;
         orderCode: string;
+        customerProfileId: string;
         branchId: string;
+        addressId: string | null;
         cartId: string | null;
         idempotencyKey: string | null;
+        promotionId: string | null;
+        promotionCodeSnapshot: string | null;
+        promotionNameSnapshot: string | null;
+        promotionDiscountTypeSnapshot: import(".prisma/client").$Enums.PromotionDiscountType | null;
+        deliveryType: import(".prisma/client").$Enums.DeliveryType;
         subtotalAmount: Prisma.Decimal;
         discountAmount: Prisma.Decimal;
         deliveryFee: Prisma.Decimal;
@@ -83,6 +104,7 @@ export declare class OrdersRepository {
         deliveryTownship: string | null;
         deliveryCity: string | null;
         deliveryPostalCode: string | null;
+        deliveryInstructions: string | null;
         deliveryLatitude: Prisma.Decimal | null;
         deliveryLongitude: Prisma.Decimal | null;
         placedAt: Date;
@@ -90,7 +112,10 @@ export declare class OrdersRepository {
     findMany(): Promise<OrderSummaryRecord[]>;
     findRecentOrderSummaries(limit?: number, client?: OrderDatabaseClient): Promise<OrderSummaryRecord[]>;
     findCustomerOrderSummaries(customerProfileId: string, limit?: number, client?: OrderDatabaseClient): Promise<OrderSummaryRecord[]>;
-    findMerchantOrderSummaries(merchantId: string, limit?: number, client?: OrderDatabaseClient): Promise<OrderSummaryRecord[]>;
+    findMerchantOrderSummaries(merchantId: string, options?: {
+        branchId?: string;
+        limit?: number;
+    }, client?: OrderDatabaseClient): Promise<OrderSummaryRecord[]>;
     findRiderOrderSummaries(riderId: string, limit?: number, client?: OrderDatabaseClient): Promise<OrderSummaryRecord[]>;
     findOrderDetailById(orderId: string, client?: OrderDatabaseClient): Promise<OrderDetailRecord | null>;
     findCustomerOrderDetail(orderId: string, customerProfileId: string, client?: OrderDatabaseClient): Promise<OrderDetailRecord | null>;

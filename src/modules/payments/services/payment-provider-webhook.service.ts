@@ -54,18 +54,18 @@ export class PaymentProviderWebhookService {
       normalized.providerEventId,
     );
 
+    const isRejected =
+      verification.status === ProviderEventVerificationStatus.FAILED;
+
     if (existingEvent !== null) {
-      if (verification.status === ProviderEventVerificationStatus.FAILED) {
+      if (isRejected) {
         this.throwInvalidSignature(verification.failureMessage);
       }
 
       return buildPaymentProviderEventEntity(existingEvent);
     }
 
-    const failedAt =
-      verification.status === ProviderEventVerificationStatus.FAILED
-        ? input.receivedAt ?? new Date()
-        : null;
+    const failedAt = isRejected ? input.receivedAt ?? new Date() : null;
     const event = await this.paymentsRepository.createPaymentProviderEvent({
       provider: input.provider,
       providerEventId: normalized.providerEventId,
@@ -75,10 +75,9 @@ export class PaymentProviderWebhookService {
       providerReference: normalized.providerReference,
       normalizedStatus: normalized.normalizedStatus,
       verificationStatus: verification.status,
-      processingStatus:
-        verification.status === ProviderEventVerificationStatus.FAILED
-          ? ProviderEventProcessingStatus.FAILED
-          : ProviderEventProcessingStatus.RECEIVED,
+      processingStatus: isRejected
+        ? ProviderEventProcessingStatus.FAILED
+        : ProviderEventProcessingStatus.RECEIVED,
       signatureHeader: input.signatureHeader ?? null,
       headersJson: input.headers,
       rawPayloadJson: input.payload,
@@ -89,7 +88,7 @@ export class PaymentProviderWebhookService {
       failedAt,
     });
 
-    if (verification.status === ProviderEventVerificationStatus.FAILED) {
+    if (isRejected) {
       this.throwInvalidSignature(verification.failureMessage);
     }
 

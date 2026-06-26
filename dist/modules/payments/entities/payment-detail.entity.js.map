@@ -1,0 +1,1 @@
+{"version":3,"file":"payment-detail.entity.js","sourceRoot":"","sources":["../../../../src/modules/payments/entities/payment-detail.entity.ts"],"names":[],"mappings":";;;AAOA,4DAQC;AAdD,qEAAgE;AAEhE,MAAa,mBAAoB,SAAQ,6CAAoB;CAE5D;AAFD,kDAEC;AAED,SAAgB,wBAAwB,CACtC,OAA6B,EAC7B,QAAgC;IAEhC,OAAO;QACL,GAAG,OAAO;QACV,QAAQ;KACT,CAAC;AACJ,CAAC"}

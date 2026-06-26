@@ -14,11 +14,11 @@ import { AuditService } from '../../../../src/modules/audit/services/audit.servi
 import { AuthenticatedUserEntity } from '../../../../src/modules/auth/entities/authenticated-user.entity';
 import { BranchOwnershipRecord } from '../../../../src/modules/branches/entities/branch-ownership.entity';
 import { BranchesService } from '../../../../src/modules/branches/services/branches.service';
-import { NotificationEventService } from '../../../../src/modules/notifications/services/notification-event.service';
 import { MenuCategoryOwnershipRecord } from '../../../../src/modules/menus/entities/menu-category-ownership.entity';
 import { MenuItemOwnershipRecord } from '../../../../src/modules/menus/entities/menu-item-ownership.entity';
 import { MenuItemPolicyService } from '../../../../src/modules/menus/policies/menu-item-policy.service';
 import { MenusRepository } from '../../../../src/modules/menus/repositories/menus.repository';
+import { MenuItemInventoryService } from '../../../../src/modules/menus/services/menu-item-inventory.service';
 import { MerchantMenuItemsService } from '../../../../src/modules/menus/services/merchant-menu-items.service';
 import { MenusService } from '../../../../src/modules/menus/services/menus.service';
 
@@ -183,10 +183,13 @@ describe('MerchantMenuItemsService', () => {
       logAction: jest.fn().mockResolvedValue({}),
     }) as unknown as jest.Mocked<AuditService>;
 
-  const makeNotificationEventService = () =>
+  const makeInventoryService = () =>
     ({
-      publishMerchantInventoryAlert: jest.fn().mockResolvedValue(undefined),
-    }) as unknown as jest.Mocked<NotificationEventService>;
+      normalizeCreateInventory: jest.fn().mockReturnValue({ isStockTracked: false, stockQuantity: null, lowStockThreshold: null }),
+      normalizeUpdateInventory: jest.fn().mockReturnValue({}),
+      resolveNextItemStockTracking: jest.fn().mockReturnValue(false),
+      adjustBranchItemInventory: jest.fn().mockResolvedValue(undefined),
+    }) as unknown as jest.Mocked<MenuItemInventoryService>;
 
   it('lists items for a merchant-owned branch', async () => {
     const service = new MerchantMenuItemsService(
@@ -200,7 +203,7 @@ describe('MerchantMenuItemsService', () => {
       {} as MenusRepository,
       new MenuItemPolicyService(),
       makeAuditService(),
-      makeNotificationEventService(),
+      makeInventoryService(),
     );
 
     await expect(service.listBranchItems(currentUser, 'branch_1')).resolves.toEqual([
@@ -310,7 +313,14 @@ describe('MerchantMenuItemsService', () => {
       ),
     } as unknown as MenusRepository;
     const auditService = makeAuditService();
-    const notificationEventService = makeNotificationEventService();
+    const inventoryService = {
+      ...makeInventoryService(),
+      normalizeCreateInventory: jest.fn().mockReturnValue({
+        isStockTracked: true,
+        stockQuantity: 12,
+        lowStockThreshold: 3,
+      }),
+    } as unknown as MenuItemInventoryService;
     const service = new MerchantMenuItemsService(
       prismaService,
       {
@@ -320,7 +330,7 @@ describe('MerchantMenuItemsService', () => {
       menusRepository,
       new MenuItemPolicyService(),
       auditService,
-      makeNotificationEventService(),
+      inventoryService,
     );
 
     const result = await service.createBranchItem(currentUser, 'branch_1', {
@@ -421,7 +431,7 @@ describe('MerchantMenuItemsService', () => {
       } as unknown as MenusRepository,
       new MenuItemPolicyService(),
       makeAuditService(),
-      makeNotificationEventService(),
+      makeInventoryService(),
     );
 
     await expect(
@@ -456,10 +466,19 @@ describe('MerchantMenuItemsService', () => {
   });
 
   it('rejects negative inventory quantities before persisting item changes', async () => {
+    const { AppException } = await import(
+      '../../../../src/common/exceptions/app.exception'
+    );
     const menusRepository = {
       findHighestItemSortOrderByBranchId: jest.fn(),
       createItem: jest.fn(),
     } as unknown as MenusRepository;
+    const inventoryService = {
+      ...makeInventoryService(),
+      normalizeCreateInventory: jest.fn().mockImplementation(() => {
+        throw new AppException('stockQuantity must be a whole number greater than or equal to zero.', HttpStatus.BAD_REQUEST, { code: ErrorCodes.validationFailed });
+      }),
+    } as unknown as MenuItemInventoryService;
     const service = new MerchantMenuItemsService(
       prismaService,
       {
@@ -469,7 +488,7 @@ describe('MerchantMenuItemsService', () => {
       menusRepository,
       new MenuItemPolicyService(),
       makeAuditService(),
-      makeNotificationEventService(),
+      inventoryService,
     );
 
     await expect(
@@ -504,7 +523,7 @@ describe('MerchantMenuItemsService', () => {
       menusRepository,
       new MenuItemPolicyService(),
       makeAuditService(),
-      makeNotificationEventService(),
+      makeInventoryService(),
     );
 
     await expect(
@@ -548,7 +567,7 @@ describe('MerchantMenuItemsService', () => {
       menusRepository,
       new MenuItemPolicyService(),
       makeAuditService(),
-      makeNotificationEventService(),
+      makeInventoryService(),
     );
 
     await expect(
@@ -597,7 +616,7 @@ describe('MerchantMenuItemsService', () => {
       {} as MenusRepository,
       new MenuItemPolicyService(),
       makeAuditService(),
-      makeNotificationEventService(),
+      makeInventoryService(),
     );
 
     await expect(
@@ -639,7 +658,7 @@ describe('MerchantMenuItemsService', () => {
       menusRepository,
       new MenuItemPolicyService(),
       makeAuditService(),
-      makeNotificationEventService(),
+      makeInventoryService(),
     );
 
     const result = await service.updateBranchItem(currentUser, 'branch_1', 'item_1', {
@@ -670,6 +689,14 @@ describe('MerchantMenuItemsService', () => {
         }),
       ),
     } as unknown as MenusRepository;
+    const inventoryService = {
+      ...makeInventoryService(),
+      normalizeUpdateInventory: jest.fn().mockReturnValue({
+        isStockTracked: true,
+        stockQuantity: 2,
+        lowStockThreshold: 3,
+      }),
+    } as unknown as MenuItemInventoryService;
     const service = new MerchantMenuItemsService(
       prismaService,
       {
@@ -687,7 +714,7 @@ describe('MerchantMenuItemsService', () => {
       menusRepository,
       new MenuItemPolicyService(),
       makeAuditService(),
-      makeNotificationEventService(),
+      inventoryService,
     );
 
     const result = await service.updateBranchItem(currentUser, 'branch_1', 'item_1', {
@@ -749,7 +776,7 @@ describe('MerchantMenuItemsService', () => {
       menusRepository,
       new MenuItemPolicyService(),
       makeAuditService(),
-      makeNotificationEventService(),
+      makeInventoryService(),
     );
 
     await expect(
@@ -803,7 +830,7 @@ describe('MerchantMenuItemsService', () => {
       findItemById: jest.fn().mockResolvedValue(updatedItem),
     } as unknown as MenusRepository;
     const auditService = makeAuditService();
-    const notificationEventService = makeNotificationEventService();
+    const inventoryService = makeInventoryService();
     const service = new MerchantMenuItemsService(
       prismaService,
       {
@@ -823,7 +850,7 @@ describe('MerchantMenuItemsService', () => {
       menusRepository,
       new MenuItemPolicyService(),
       auditService,
-      makeNotificationEventService(),
+      makeInventoryService(),
     );
 
     await service.updateBranchItem(currentUser, 'branch_1', 'item_1', {
@@ -840,118 +867,46 @@ describe('MerchantMenuItemsService', () => {
     );
   });
 
-  it('adjusts tracked item inventory and writes an audit record', async () => {
-    const menusRepository = {
-      countItemInventoryLotsByMenuItemId: jest.fn().mockResolvedValue(0),
-      adjustTrackedItemStock: jest.fn().mockResolvedValue(true),
-      findItemById: jest.fn().mockResolvedValue(
-        makeItem({
-          isStockTracked: true,
-          stockQuantity: 8,
-          lowStockThreshold: 3,
-        }),
-      ),
-    } as unknown as MenusRepository;
-    const auditService = makeAuditService();
-    const notificationEventService = makeNotificationEventService();
+  it('delegates adjustBranchItemInventory to MenuItemInventoryService', async () => {
+    const adjustedItemDto = {
+      id: 'item_1',
+      branchId: 'branch_1',
+      stockQuantity: 8,
+    };
+    const inventoryService = makeInventoryService();
+    (inventoryService.adjustBranchItemInventory as jest.Mock).mockResolvedValue(adjustedItemDto);
+    const item = makeItem({ isStockTracked: true, stockQuantity: 5 });
     const service = new MerchantMenuItemsService(
       prismaService,
       {
         findOwnedByUserId: jest.fn().mockResolvedValue(makeBranch()),
       } as unknown as BranchesService,
       {
-        findItemOwnedByUserId: jest.fn().mockResolvedValue(
-          makeItem({
-            isStockTracked: true,
-            stockQuantity: 5,
-            lowStockThreshold: 3,
-          }),
-        ),
+        findItemOwnedByUserId: jest.fn().mockResolvedValue(item),
       } as unknown as MenusService,
-      menusRepository,
+      {} as MenusRepository,
       new MenuItemPolicyService(),
-      auditService,
-      notificationEventService,
+      makeAuditService(),
+      inventoryService,
     );
 
+    const payload = {
+      delta: 3,
+      reasonCode: 'manual_restock_after_return',
+      note: 'Returned stock added back.',
+    };
     const result = await service.adjustBranchItemInventory(
       currentUser,
       'branch_1',
       'item_1',
-      {
-        delta: 3,
-        reasonCode: 'manual_restock_after_return',
-        note: 'Returned stock added back.',
-      },
+      payload,
     );
 
-    expect(menusRepository.adjustTrackedItemStock).toHaveBeenCalledWith(
-      'item_1',
-      3,
-      expect.anything(),
+    expect(inventoryService.adjustBranchItemInventory).toHaveBeenCalledWith(
+      currentUser,
+      item,
+      payload,
     );
-    expect(result.stockQuantity).toBe(8);
-    expect(auditService.logAction).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: 'menu_items.inventory_adjusted',
-        resourceType: 'MENU_ITEM',
-        resourceId: 'item_1',
-        branchId: 'branch_1',
-      }),
-    );
-    expect(
-      notificationEventService.publishMerchantInventoryAlert,
-    ).not.toHaveBeenCalled();
-  });
-
-  it('publishes a merchant inventory alert when an item crosses into low stock', async () => {
-    const menusRepository = {
-      countItemInventoryLotsByMenuItemId: jest.fn().mockResolvedValue(0),
-      adjustTrackedItemStock: jest.fn().mockResolvedValue(true),
-      findItemById: jest.fn().mockResolvedValue(
-        makeItem({
-          isStockTracked: true,
-          stockQuantity: 3,
-          lowStockThreshold: 3,
-        }),
-      ),
-    } as unknown as MenusRepository;
-    const notificationEventService = makeNotificationEventService();
-    const service = new MerchantMenuItemsService(
-      prismaService,
-      {
-        findOwnedByUserId: jest.fn().mockResolvedValue(makeBranch()),
-      } as unknown as BranchesService,
-      {
-        findItemOwnedByUserId: jest.fn().mockResolvedValue(
-          makeItem({
-            isStockTracked: true,
-            stockQuantity: 5,
-            lowStockThreshold: 3,
-          }),
-        ),
-      } as unknown as MenusService,
-      menusRepository,
-      new MenuItemPolicyService(),
-      makeAuditService(),
-      notificationEventService,
-    );
-
-    await service.adjustBranchItemInventory(currentUser, 'branch_1', 'item_1', {
-      delta: -2,
-      reasonCode: 'manual_count_correction',
-    });
-
-    expect(
-      notificationEventService.publishMerchantInventoryAlert,
-    ).toHaveBeenCalledWith(
-      expect.objectContaining({
-        resourceType: 'MENU_ITEM',
-        resourceId: 'item_1',
-        attentionLevel: 'LOW_STOCK',
-        stockQuantity: 3,
-        lowStockThreshold: 3,
-      }),
-    );
+    expect(result).toBe(adjustedItemDto);
   });
 });

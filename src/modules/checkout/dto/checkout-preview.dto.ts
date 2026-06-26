@@ -227,10 +227,11 @@ export class CheckoutPreviewDto {
   customer!: CheckoutPreviewCustomerDto;
 
   @ApiProperty({
-    description: 'Delivery address used for the checkout preview.',
+    description: 'Delivery address used for the checkout preview. Null for PICKUP orders.',
     type: () => CheckoutPreviewAddressDto,
+    nullable: true,
   })
-  address!: CheckoutPreviewAddressDto;
+  address!: CheckoutPreviewAddressDto | null;
 
   @ApiProperty({
     description: 'Branch context used for the checkout preview.',
@@ -265,7 +266,7 @@ export function toCheckoutPreviewDto(
       fullName: preview.customer.fullName,
       avatarUrl: preview.customer.avatarUrl,
     },
-    address: {
+    address: preview.address === null ? null : {
       addressId: preview.address.addressId,
       label: preview.address.label,
       line1: preview.address.line1,

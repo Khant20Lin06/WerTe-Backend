@@ -4,12 +4,12 @@ export declare class SystemMessageTemplateRepository {
     private readonly prisma;
     constructor(prisma: PrismaService);
     findActiveByCode(code: SystemMessageCode): import(".prisma/client").Prisma.Prisma__SystemMessageTemplateClient<{
-        code: import(".prisma/client").$Enums.SystemMessageCode;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        label: string;
+        code: import(".prisma/client").$Enums.SystemMessageCode;
         isActive: boolean;
+        label: string;
         bodyTemplate: string;
     } | null, null, import("@prisma/client/runtime/library").DefaultArgs>;
     upsertTemplate(payload: {
@@ -18,12 +18,12 @@ export declare class SystemMessageTemplateRepository {
         bodyTemplate: string;
         isActive?: boolean;
     }): import(".prisma/client").Prisma.Prisma__SystemMessageTemplateClient<{
-        code: import(".prisma/client").$Enums.SystemMessageCode;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        label: string;
+        code: import(".prisma/client").$Enums.SystemMessageCode;
         isActive: boolean;
+        label: string;
         bodyTemplate: string;
     }, never, import("@prisma/client/runtime/library").DefaultArgs>;
 }

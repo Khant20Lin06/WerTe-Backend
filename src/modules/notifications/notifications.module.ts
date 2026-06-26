@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 
 import { AuditModule } from '../audit/audit.module';
 import { AuthRepository } from '../auth/repositories/auth.repository';
+import { SessionCacheService } from '../auth/services/session-cache.service';
 import { MerchantsModule } from '../merchants/merchants.module';
 import { UsersModule } from '../users/users.module';
 import { AdminInventoryAlertsController } from './controllers/admin-inventory-alerts.controller';
@@ -25,6 +26,7 @@ import { NotificationsService } from './services/notifications.service';
   controllers: [NotificationsController, AdminInventoryAlertsController],
   providers: [
     AuthRepository,
+    SessionCacheService,
     NotificationsRepository,
     NotificationsService,
     NotificationDeliveryService,

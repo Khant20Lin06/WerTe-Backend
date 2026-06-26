@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import {
   ApiBearerAuth,
   ApiBody,
   ApiCreatedResponse,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiParam,
@@ -125,6 +126,25 @@ export class MerchantPromotionsController {
       branchId,
       promotionId,
       body,
+    );
+  }
+
+  @ApiOperation({
+    operationId: 'deleteMerchantBranchPromotion',
+    summary: 'Soft-delete a promotion for a merchant-owned branch',
+  })
+  @ApiNoContentResponse({ description: 'Promotion deleted successfully.' })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Delete(':promotionId')
+  async delete(
+    @CurrentUser() currentUser: AuthenticatedUserEntity,
+    @Param('branchId') branchId: string,
+    @Param('promotionId') promotionId: string,
+  ): Promise<void> {
+    await this.merchantPromotionsService.deleteBranchPromotion(
+      currentUser,
+      branchId,
+      promotionId,
     );
   }
 }

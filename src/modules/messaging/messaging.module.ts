@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 
 import { AuditModule } from '../audit/audit.module';
 import { AuthRepository } from '../auth/repositories/auth.repository';
+import { SessionCacheService } from '../auth/services/session-cache.service';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { UsersModule } from '../users/users.module';
 import { AdminMessagingController } from './controllers/admin-messaging.controller';
@@ -42,6 +43,7 @@ import { MessagePolicyService } from './policies/message-policy.service';
   ],
   providers: [
     AuthRepository,
+    SessionCacheService,
     ConversationRepository,
     MessageRepository,
     SystemMessageTemplateRepository,

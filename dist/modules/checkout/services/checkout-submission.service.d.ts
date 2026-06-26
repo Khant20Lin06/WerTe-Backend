@@ -1,16 +1,26 @@
+import { DeliveryType, PaymentMethod, PaymentProvider } from '@prisma/client';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { QueueService } from '../../../infrastructure/queue/queue.service';
 import { AuthenticatedUserEntity } from '../../auth/entities/authenticated-user.entity';
 import { CartsRepository } from '../../carts/repositories/carts.repository';
 import { SystemMessageService } from '../../messaging/services/system-message.service';
+import { MenuInventoryLifecycleService } from '../../menus/services/menu-inventory-lifecycle.service';
+import { MenusService } from '../../menus/services/menus.service';
+import { NotificationEventService } from '../../notifications/services/notification-event.service';
 import { OrdersRepository } from '../../orders/repositories/orders.repository';
+import { CheckoutPaymentIntentService } from '../../payments/services/checkout-payment-intent.service';
+import { PromotionsRepository } from '../../promotions/repositories/promotions.repository';
 import { CheckoutSubmissionEntity } from '../entities/checkout-submission.entity';
 import { CheckoutContextService } from './checkout-context.service';
 import { CheckoutPricingService } from './checkout-pricing.service';
 export type SubmitCheckoutInput = {
     branchId: string;
     addressId?: string;
+    deliveryType?: DeliveryType;
     idempotencyKey: string;
+    paymentMethod?: PaymentMethod;
+    paymentProvider?: PaymentProvider;
+    promotionCode?: string;
 };
 export declare class CheckoutSubmissionService {
     private readonly prisma;
@@ -18,11 +28,19 @@ export declare class CheckoutSubmissionService {
     private readonly checkoutPricingService;
     private readonly ordersRepository;
     private readonly cartsRepository;
+    private readonly menusService;
+    private readonly menuInventoryLifecycleService;
+    private readonly checkoutPaymentIntentService;
+    private readonly promotionsRepository;
     private readonly queueService;
     private readonly systemMessageService;
-    constructor(prisma: PrismaService, checkoutContextService: CheckoutContextService, checkoutPricingService: CheckoutPricingService, ordersRepository: OrdersRepository, cartsRepository: CartsRepository, queueService: QueueService, systemMessageService: SystemMessageService);
+    private readonly notificationEventService;
+    constructor(prisma: PrismaService, checkoutContextService: CheckoutContextService, checkoutPricingService: CheckoutPricingService, ordersRepository: OrdersRepository, cartsRepository: CartsRepository, menusService: MenusService, menuInventoryLifecycleService: MenuInventoryLifecycleService, checkoutPaymentIntentService: CheckoutPaymentIntentService, promotionsRepository: PromotionsRepository, queueService: QueueService, systemMessageService: SystemMessageService, notificationEventService: NotificationEventService);
     submitCurrentCustomerCheckout(currentUser: AuthenticatedUserEntity, input: SubmitCheckoutInput): Promise<CheckoutSubmissionEntity>;
     private buildOrderCode;
+    private buildOrderCartItems;
     private assertIdempotentOrderBelongsToCustomer;
     private tryResolveReplayAfterUniqueConstraint;
+    private resolveExistingOrCreatePaymentIntent;
+    private publishReservedInventoryAlerts;
 }

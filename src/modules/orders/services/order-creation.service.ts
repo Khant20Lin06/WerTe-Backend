@@ -14,6 +14,7 @@ export class OrderCreationService {
       {
         branchId: dto.branchId,
         addressId: dto.addressId,
+        deliveryType: dto.deliveryType,
         idempotencyKey: dto.idempotencyKey,
         paymentMethod: dto.paymentMethod,
         paymentProvider: dto.paymentProvider,

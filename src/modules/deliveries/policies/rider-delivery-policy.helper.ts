@@ -41,10 +41,13 @@ export function canRiderMarkDeliveryPickedUp(
   currentUser: AuthenticatedUserEntity,
   delivery: RiderDeliveryPolicyRecord,
 ): boolean {
+  // Rider-first flow: merchant prepares/marks ready after rider accepts.
+  // Rider can only pick up once the order is READY.
   return (
     hasRiderScope(currentUser, delivery) &&
-    delivery.order.status === OrderStatus.RIDER_ACCEPTED &&
-    delivery.status === DeliveryStatus.ACCEPTED
+    delivery.order.status === OrderStatus.READY &&
+    (delivery.status === DeliveryStatus.ACCEPTED ||
+      delivery.status === DeliveryStatus.ASSIGNED)
   );
 }
 

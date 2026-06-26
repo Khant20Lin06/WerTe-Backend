@@ -14,6 +14,7 @@ export class PromotionsRepository {
 
   findAll(): Promise<PromotionWithCount[]> {
     return this.prisma.promotion.findMany({
+      where: { deletedAt: null },
       select: { ...promotionSelect, _count: { select: { orders: true } } },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     }) as Promise<PromotionWithCount[]>;
@@ -24,7 +25,7 @@ export class PromotionsRepository {
     client: PromotionsDatabaseClient = this.prisma,
   ): Promise<PromotionRecord[]> {
     return client.promotion.findMany({
-      where: { branchId },
+      where: { branchId, deletedAt: null },
       select: promotionSelect,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
@@ -34,8 +35,8 @@ export class PromotionsRepository {
     promotionId: string,
     client: PromotionsDatabaseClient = this.prisma,
   ): Promise<PromotionRecord | null> {
-    return client.promotion.findUnique({
-      where: { id: promotionId },
+    return client.promotion.findFirst({
+      where: { id: promotionId, deletedAt: null },
       select: promotionSelect,
     });
   }
@@ -45,13 +46,8 @@ export class PromotionsRepository {
     code: string,
     client: PromotionsDatabaseClient = this.prisma,
   ): Promise<PromotionRecord | null> {
-    return client.promotion.findUnique({
-      where: {
-        branchId_code: {
-          branchId,
-          code,
-        },
-      },
+    return client.promotion.findFirst({
+      where: { branchId, code, deletedAt: null },
       select: promotionSelect,
     });
   }
@@ -75,6 +71,37 @@ export class PromotionsRepository {
       where: { id: promotionId },
       data,
       select: promotionSelect,
+    });
+  }
+
+  softDeletePromotion(
+    promotionId: string,
+    client: PromotionsDatabaseClient = this.prisma,
+  ): Promise<PromotionRecord> {
+    return client.promotion.update({
+      where: { id: promotionId },
+      data: { deletedAt: new Date() },
+      select: promotionSelect,
+    });
+  }
+
+  countCustomerUsage(
+    promotionId: string,
+    customerProfileId: string,
+    client: PromotionsDatabaseClient = this.prisma,
+  ): Promise<number> {
+    return client.promotionUsage.count({
+      where: { promotionId, customerProfileId },
+    });
+  }
+
+  createUsage(
+    data: { promotionId: string; customerProfileId: string; orderId: string },
+    client: PromotionsDatabaseClient = this.prisma,
+  ): Promise<{ id: string }> {
+    return client.promotionUsage.create({
+      data,
+      select: { id: true },
     });
   }
 }

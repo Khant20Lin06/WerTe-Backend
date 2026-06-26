@@ -9,6 +9,7 @@ import {
 
 import { BranchOwnershipRecord } from '../../../../src/modules/branches/entities/branch-ownership.entity';
 import { BranchesRepository } from '../../../../src/modules/branches/repositories/branches.repository';
+import { BranchCacheService } from '../../../../src/modules/branches/services/branch-cache.service';
 import { BranchesService } from '../../../../src/modules/branches/services/branches.service';
 
 describe('BranchesService', () => {
@@ -59,7 +60,7 @@ describe('BranchesService', () => {
 
   it('builds branch ownership with merchant and zone context', () => {
     const repository = {} as BranchesRepository;
-    const service = new BranchesService(repository);
+    const service = new BranchesService(repository, {} as BranchCacheService);
 
     const ownership = service.buildOwnership(makeBranch());
 
@@ -92,7 +93,13 @@ describe('BranchesService', () => {
     const repository = {
       findById: jest.fn().mockResolvedValue(makeBranch()),
     } as unknown as BranchesRepository;
-    const service = new BranchesService(repository);
+    const service = new BranchesService(
+      repository,
+      {
+        getById: jest.fn().mockResolvedValue(null),
+        setById: jest.fn().mockResolvedValue(undefined),
+      } as unknown as BranchCacheService,
+    );
 
     const branch = await service.findOwnedByUserId('usr_merchant_2', 'br_1');
 

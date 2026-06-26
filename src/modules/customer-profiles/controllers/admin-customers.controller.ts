@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
+import { UserRole, UserStatus } from '@prisma/client';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -15,7 +15,7 @@ import { CustomerProfileDto } from '../dto/customer-profile.dto';
 import { AdminCustomerManagementService } from '../services/admin-customer-management.service';
 
 class AdminUpdateCustomerStatusDto {
-  status!: string;
+  status!: UserStatus;
 }
 
 @ApiTags('admin-customers')
@@ -60,7 +60,7 @@ export class AdminCustomersController {
   ) {
     return this.adminCustomerManagementService.updateCustomerStatus(
       customerId,
-      body.status as any,
+      body.status,
     );
   }
 }

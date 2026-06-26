@@ -195,29 +195,17 @@ describe('CheckoutSubmissionService', () => {
 
   const makeMenusService = () =>
     ({
-      findItemById: jest.fn().mockResolvedValue({
-        id: 'item_1',
-        isStockTracked: true,
-      }),
-      listOptionGroupsByMenuItemId: jest.fn().mockResolvedValue([
-        {
-          id: 'group_1',
-          kind: ItemOptionGroupKind.ADD_ON,
-        },
+      listItemsByIds: jest.fn().mockResolvedValue([
+        { id: 'item_1', isStockTracked: true },
       ]),
-      listOptionsByOptionGroupId: jest.fn().mockResolvedValue([
+      listOptionsByBranchId: jest.fn().mockResolvedValue([
         {
           id: 'option_1',
           isStockTracked: true,
-          group: {
-            id: 'group_1',
-            kind: ItemOptionGroupKind.ADD_ON,
-          },
+          group: { id: 'group_1', kind: ItemOptionGroupKind.ADD_ON },
         },
       ]),
-      findActiveVariantCombinationByMenuItemIdAndOptionIds: jest
-        .fn()
-        .mockResolvedValue(null),
+      listVariantCombinationsByMenuItemIds: jest.fn().mockResolvedValue([]),
     } as unknown as jest.Mocked<MenusService>);
 
   const makeMenuInventoryLifecycleService = () =>

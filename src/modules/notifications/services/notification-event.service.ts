@@ -73,6 +73,7 @@ export class NotificationEventService {
           systemMessageCode: input.code,
         },
         orderId: input.order.orderId,
+        deliveryId: input.order.deliveryId ?? undefined,
         conversationId: input.conversation.conversationId,
         messageId: input.message.messageId,
       });

@@ -25,6 +25,8 @@ import { AuthenticatedUserEntity } from '../../auth/entities/authenticated-user.
 import { UploadResponseDto } from '../dto/upload-response.dto';
 import { UploadsService, UploadContext } from '../services/uploads.service';
 
+// Multer limits are configured via MulterModule.registerAsync in uploads.module.ts.
+// FileInterceptor('file') picks them up automatically from the registered defaults.
 @ApiTags('uploads')
 @ApiBearerAuth('access-token')
 @Controller('uploads')

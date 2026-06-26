@@ -16,6 +16,7 @@ import {
   BranchSummaryRecord,
   StoreTypesRepository,
 } from '../../../../src/modules/store-types/repositories/store-types.repository';
+import { StoreTypeCacheService } from '../../../../src/modules/store-types/services/store-type-cache.service';
 import { MerchantStoreTypeRequestService } from '../../../../src/modules/store-types/services/merchant-store-type-request.service';
 import { StoreTypePolicyService } from '../../../../src/modules/store-types/policies/store-type-policy.service';
 
@@ -136,6 +137,10 @@ describe('MerchantStoreTypeRequestService', () => {
       {
         listActiveStoreTypes: jest.fn().mockResolvedValue([makeStoreType()]),
       } as unknown as StoreTypesRepository,
+      {
+        getActiveList: jest.fn().mockResolvedValue(null),
+        setActiveList: jest.fn().mockResolvedValue(undefined),
+      } as unknown as StoreTypeCacheService,
       new StoreTypePolicyService(),
       makeAuditService(),
     );
@@ -166,6 +171,10 @@ describe('MerchantStoreTypeRequestService', () => {
     const service = new MerchantStoreTypeRequestService(
       makePrismaService(),
       storeTypesRepository,
+      {
+        getActiveList: jest.fn().mockResolvedValue(null),
+        setActiveList: jest.fn().mockResolvedValue(undefined),
+      } as unknown as StoreTypeCacheService,
       new StoreTypePolicyService(),
       auditService,
     );
@@ -214,6 +223,10 @@ describe('MerchantStoreTypeRequestService', () => {
           }),
         ),
       } as unknown as StoreTypesRepository,
+      {
+        getActiveList: jest.fn().mockResolvedValue(null),
+        setActiveList: jest.fn().mockResolvedValue(undefined),
+      } as unknown as StoreTypeCacheService,
       new StoreTypePolicyService(),
       makeAuditService(),
     );
@@ -242,6 +255,10 @@ describe('MerchantStoreTypeRequestService', () => {
           }),
         ),
       } as unknown as StoreTypesRepository,
+      {
+        getActiveList: jest.fn().mockResolvedValue(null),
+        setActiveList: jest.fn().mockResolvedValue(undefined),
+      } as unknown as StoreTypeCacheService,
       new StoreTypePolicyService(),
       makeAuditService(),
     );

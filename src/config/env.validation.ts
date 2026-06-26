@@ -17,6 +17,8 @@ export const envValidationSchema = Joi.object({
     .uri({ scheme: ['postgres', 'postgresql'] })
     .required(),
   DB_ENABLE_QUERY_LOGS: Joi.boolean().default(false),
+  DATABASE_CONNECTION_LIMIT: Joi.number().integer().min(1).max(200).default(20),
+  DATABASE_POOL_TIMEOUT_SECONDS: Joi.number().integer().min(1).max(60).default(10),
   REDIS_URL: Joi.string().uri({ scheme: ['redis', 'rediss'] }).required(),
   REDIS_KEY_PREFIX: Joi.string().trim().default('food-delivery'),
   JWT_ACCESS_SECRET: Joi.string().min(32).required(),
@@ -36,10 +38,23 @@ export const envValidationSchema = Joi.object({
   FCM_PROJECT_ID: Joi.string().trim().default('sample-project'),
   FCM_CLIENT_EMAIL: Joi.string().email().allow('').optional(),
   FCM_PRIVATE_KEY: Joi.string().allow('').optional(),
+  WORKER_CONCURRENCY: Joi.number().integer().min(1).max(50).default(5),
   PROVIDER_WEBHOOK_SIGNING_SECRET: Joi.string().allow('').optional(),
   PAYMENT_WEBHOOK_SIGNING_SECRET: Joi.string().allow('').optional(),
   REFUND_WEBHOOK_SIGNING_SECRET: Joi.string().allow('').optional(),
   STRIPE_WEBHOOK_SIGNING_SECRET: Joi.string().allow('').optional(),
   STRIPE_PAYMENT_WEBHOOK_SIGNING_SECRET: Joi.string().allow('').optional(),
   STRIPE_REFUND_WEBHOOK_SIGNING_SECRET: Joi.string().allow('').optional(),
+  // OpenTelemetry — all optional; tracing is a no-op when endpoint is absent.
+  OTEL_SERVICE_NAME: Joi.string().trim().optional(),
+  OTEL_SERVICE_VERSION: Joi.string().trim().optional(),
+  OTEL_ENVIRONMENT: Joi.string().trim().optional(),
+  OTEL_EXPORTER_OTLP_ENDPOINT: Joi.string().uri().allow('').optional(),
+  OTEL_EXPORTER_OTLP_PROTOCOL: Joi.string()
+    .valid('grpc', 'http/protobuf', 'http/json')
+    .optional(),
+  OTEL_TRACES_SAMPLER: Joi.string()
+    .valid('parentbased_always_on', 'always_off', 'traceidratio')
+    .optional(),
+  OTEL_TRACES_SAMPLER_ARG: Joi.number().min(0).max(1).optional(),
 });

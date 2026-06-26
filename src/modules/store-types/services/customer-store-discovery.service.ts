@@ -1,9 +1,10 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
+import { RatingTargetType, UserRole } from '@prisma/client';
 
 import { ErrorCodes } from '../../../common/constants/error-codes';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { hasRole } from '../../../common/policies/tenant-access-policy.helper';
+import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { AuthenticatedUserEntity } from '../../auth/entities/authenticated-user.entity';
 import { CustomerCatalogReadService } from '../../menus/services/customer-catalog-read.service';
 import {
@@ -30,12 +31,15 @@ import {
 } from '../dto/list-customer-stores-query.dto';
 import { CustomerStoreDiscoveryRecord } from '../entities/customer-store-discovery.entity';
 import { StoreTypesRepository } from '../repositories/store-types.repository';
+import { DiscoveryCacheService } from './discovery-cache.service';
 
 @Injectable()
 export class CustomerStoreDiscoveryService {
   constructor(
     private readonly storeTypesRepository: StoreTypesRepository,
     private readonly customerCatalogReadService: CustomerCatalogReadService,
+    private readonly discoveryCache: DiscoveryCacheService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async listDiscoverableStores(
@@ -47,8 +51,12 @@ export class CustomerStoreDiscoveryService {
     const { branches, selectedStoreTypeCodes } =
       await this.findDiscoverableBranches(query);
 
-    return this.sortBranches(branches, query.sortBy).map((branch) =>
-      this.toCustomerStoreSummary(branch, selectedStoreTypeCodes),
+    const sorted = this.sortBranches(branches, query.sortBy);
+    const branchIds = sorted.map((b) => b.id);
+    const ratingMap = await this.fetchBranchRatingMap(branchIds);
+
+    return sorted.map((branch) =>
+      this.toCustomerStoreSummary(branch, selectedStoreTypeCodes, ratingMap.get(branch.id)),
     );
   }
 
@@ -69,13 +77,13 @@ export class CustomerStoreDiscoveryService {
   ): Promise<CustomerStoreDetailDto> {
     this.assertCanDiscoverStores(currentUser);
 
-    const branch = await this.findDiscoverableBranchOrThrow(branchId);
-    const catalog =
-      await this.customerCatalogReadService.getVisibleBranchCatalogOrThrow(
-        branchId,
-      );
+    const [branch, catalog, ratingAggregate] = await Promise.all([
+      this.findDiscoverableBranchOrThrow(branchId),
+      this.customerCatalogReadService.getVisibleBranchCatalogOrThrow(branchId),
+      this.fetchSingleBranchRating(branchId),
+    ]);
 
-    return toCustomerStoreDetailDto(branch, catalog);
+    return toCustomerStoreDetailDto(branch, catalog, ratingAggregate);
   }
 
   async getDiscoverableStoreCatalogEntry(
@@ -107,6 +115,33 @@ export class CustomerStoreDiscoveryService {
     );
   }
 
+  private async fetchBranchRatingMap(
+    branchIds: string[],
+  ): Promise<Map<string, { averageRating: number | null; reviewCount: number }>> {
+    if (branchIds.length === 0) return new Map();
+    const rows = await this.prisma.rating.groupBy({
+      by: ['targetId'],
+      where: { targetType: RatingTargetType.BRANCH, targetId: { in: branchIds } },
+      _avg: { score: true },
+      _count: { score: true },
+    });
+    const map = new Map<string, { averageRating: number | null; reviewCount: number }>();
+    for (const row of rows) {
+      map.set(row.targetId, {
+        averageRating: row._avg.score !== null ? Math.round(row._avg.score * 10) / 10 : null,
+        reviewCount: row._count.score,
+      });
+    }
+    return map;
+  }
+
+  private async fetchSingleBranchRating(
+    branchId: string,
+  ): Promise<{ averageRating: number | null; reviewCount: number }> {
+    const map = await this.fetchBranchRatingMap([branchId]);
+    return map.get(branchId) ?? { averageRating: null, reviewCount: 0 };
+  }
+
   private assertCanDiscoverStores(currentUser: AuthenticatedUserEntity) {
     if (!hasRole(currentUser, UserRole.CUSTOMER)) {
       throw new AppException(
@@ -122,6 +157,7 @@ export class CustomerStoreDiscoveryService {
   private toCustomerStoreSummary(
     branch: CustomerStoreDiscoveryRecord,
     selectedStoreTypeCodes?: string[],
+    rating?: { averageRating: number | null; reviewCount: number },
   ): CustomerStoreSummaryDto {
     if (branch.storeTypes.length === 0) {
       throw new AppException(
@@ -138,6 +174,8 @@ export class CustomerStoreDiscoveryService {
 
     return toCustomerStoreSummaryDto(branch, {
       preferredStoreTypeCodes: selectedStoreTypeCodes,
+      averageRating: rating?.averageRating ?? null,
+      reviewCount: rating?.reviewCount ?? 0,
     });
   }
 
@@ -152,15 +190,34 @@ export class CustomerStoreDiscoveryService {
       query.storeTypeCodes,
     );
 
-    const branches = await this.storeTypesRepository.listCustomerDiscoverableBranches(
-      {
-        branchId: this.normalizeOptionalString(query.branchId),
-        merchantId: this.normalizeOptionalString(query.merchantId),
-        storeTypeCodes,
-        township: this.normalizeOptionalString(query.township),
-        keyword: this.normalizeOptionalString(query.keyword),
-      },
-    );
+    const filter = {
+      branchId: this.normalizeOptionalString(query.branchId),
+      merchantId: this.normalizeOptionalString(query.merchantId),
+      storeTypeCodes,
+      township: this.normalizeOptionalString(query.township),
+      keyword: this.normalizeOptionalString(query.keyword),
+    };
+
+    let branches: CustomerStoreDiscoveryRecord[];
+
+    if (this.discoveryCache.isCacheable(filter)) {
+      const cached = await this.discoveryCache.getList({
+        storeTypeCodes: filter.storeTypeCodes,
+        township: filter.township,
+      });
+
+      if (cached !== null) {
+        branches = cached;
+      } else {
+        branches = await this.storeTypesRepository.listCustomerDiscoverableBranches(filter);
+        await this.discoveryCache.setList(
+          { storeTypeCodes: filter.storeTypeCodes, township: filter.township },
+          branches,
+        );
+      }
+    } else {
+      branches = await this.storeTypesRepository.listCustomerDiscoverableBranches(filter);
+    }
 
     return {
       branches: branches.filter((branch) => branch.storeTypes.length > 0),

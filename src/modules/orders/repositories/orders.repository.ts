@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
+  DeliveryType,
   ItemOptionGroupKind,
   OrderStatus,
   Prisma,
@@ -25,9 +26,10 @@ type CreateCheckoutOrderInput = {
   orderCode: string;
   customerProfileId: string;
   branchId: string;
-  addressId: string;
+  addressId?: string | null;
   cartId: string;
   idempotencyKey: string;
+  deliveryType: DeliveryType;
   promotionId?: string | null;
   promotionCodeSnapshot?: string | null;
   promotionNameSnapshot?: string | null;
@@ -38,16 +40,16 @@ type CreateCheckoutOrderInput = {
   discountAmount: Prisma.Decimal;
   deliveryFee: Prisma.Decimal;
   totalAmount: Prisma.Decimal;
-  deliveryLabel: string;
-  deliveryLine1: string;
+  deliveryLabel?: string | null;
+  deliveryLine1?: string | null;
   deliveryLine2?: string | null;
   deliveryLandmark?: string | null;
-  deliveryTownship: string;
+  deliveryTownship?: string | null;
   deliveryCity?: string | null;
   deliveryPostalCode?: string | null;
   deliveryInstructions?: string | null;
-  deliveryLatitude: Prisma.Decimal;
-  deliveryLongitude: Prisma.Decimal;
+  deliveryLatitude?: Prisma.Decimal | null;
+  deliveryLongitude?: Prisma.Decimal | null;
   changedByUserId: string;
   cartItems: Array<{
     menuItemId: string;
@@ -310,6 +312,7 @@ export class OrdersRepository {
         promotionNameSnapshot: payload.promotionNameSnapshot,
         promotionDiscountTypeSnapshot: payload.promotionDiscountTypeSnapshot,
         status: payload.status,
+        deliveryType: payload.deliveryType,
         currencyCode: payload.currencyCode,
         subtotalAmount: payload.subtotalAmount,
         discountAmount: payload.discountAmount,

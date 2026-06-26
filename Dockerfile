@@ -1,4 +1,4 @@
-FROM node:20-alpine AS deps
+FROM node:22-alpine AS deps
 
 WORKDIR /app
 
@@ -22,7 +22,7 @@ RUN apk add --no-cache openssl
 
 COPY prisma ./prisma
 
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 
 WORKDIR /app
 
@@ -41,4 +41,7 @@ USER nestjs
 
 EXPOSE 3000
 
-CMD ["node", "dist/main"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -qO- http://localhost:3000/api/v1/health/live || exit 1
+
+CMD ["node", "-r", "./dist/instrumentation", "dist/main"]

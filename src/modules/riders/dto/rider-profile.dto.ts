@@ -59,6 +59,12 @@ export class RiderProfileDto {
     example: '2026-04-19T08:00:00.000Z',
   })
   updatedAt!: string;
+
+  @ApiProperty({
+    description: 'Whether the rider is currently online and accepting deliveries.',
+    example: false,
+  })
+  isOnline!: boolean;
 }
 
 export function toRiderProfileDto(rider: RiderOwnershipRecord): RiderProfileDto {
@@ -72,5 +78,6 @@ export function toRiderProfileDto(rider: RiderOwnershipRecord): RiderProfileDto 
     accountStatus: rider.user.status,
     createdAt: rider.createdAt.toISOString(),
     updatedAt: rider.updatedAt.toISOString(),
+    isOnline: rider.availability?.isOnline ?? false,
   };
 }

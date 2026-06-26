@@ -49,7 +49,7 @@ export class CheckoutContextBranchEntity {
 export class CheckoutContextEntity {
   currencyCode!: string;
   customer!: CheckoutContextCustomerEntity;
-  address!: CheckoutContextAddressEntity;
+  address!: CheckoutContextAddressEntity | null;
   branch!: CheckoutContextBranchEntity;
   cart!: CartAggregateEntity;
 }
@@ -57,7 +57,7 @@ export class CheckoutContextEntity {
 type BuildCheckoutContextInput = {
   currencyCode?: string;
   customerProfile: CustomerProfileOwnershipRecord;
-  address: AddressOwnershipRecord;
+  address: AddressOwnershipRecord | null;
   branch: BranchOwnershipRecord;
   cart: CartAggregateEntity;
 };
@@ -76,20 +76,23 @@ export function buildCheckoutContext(
       fullName: input.customerProfile.fullName,
       avatarUrl: input.customerProfile.avatarUrl,
     },
-    address: {
-      addressId: input.address.id,
-      label: input.address.label,
-      line1: input.address.line1,
-      line2: input.address.line2,
-      landmark: input.address.landmark,
-      township: input.address.township,
-      city: input.address.city,
-      postalCode: input.address.postalCode,
-      deliveryInstructions: input.address.deliveryInstructions,
-      latitude: input.address.latitude.toString(),
-      longitude: input.address.longitude.toString(),
-      isDefault: input.address.isDefault,
-    },
+    address:
+      input.address === null
+        ? null
+        : {
+            addressId: input.address.id,
+            label: input.address.label,
+            line1: input.address.line1,
+            line2: input.address.line2,
+            landmark: input.address.landmark,
+            township: input.address.township,
+            city: input.address.city,
+            postalCode: input.address.postalCode,
+            deliveryInstructions: input.address.deliveryInstructions,
+            latitude: input.address.latitude.toString(),
+            longitude: input.address.longitude.toString(),
+            isDefault: input.address.isDefault,
+          },
     branch: {
       branchId: input.branch.id,
       merchantId: input.branch.merchant.id,

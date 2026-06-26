@@ -215,4 +215,29 @@ export class MerchantOrdersController {
 
     return toOrderDetailDto(order);
   }
+
+  @ApiOperation({ summary: 'Confirm customer picked up a PICKUP order' })
+  @ApiParam({ name: 'orderId', description: 'Order ID' })
+  @ApiOkResponse({
+    description: 'Marks a PICKUP order as DELIVERED when customer collects it.',
+    type: OrderDetailDto,
+  })
+  @Post(':orderId/confirm-pickup')
+  async confirmPickup(
+    @CurrentUser() currentUser: AuthenticatedUserEntity,
+    @Param('orderId') orderId: string,
+    @Body() body: MerchantOrderActionDto,
+  ) {
+    const order =
+      await this.merchantOrderHandlingService.confirmPickupCurrentMerchantOrder(
+        currentUser,
+        {
+          orderId,
+          reasonCode: body?.reasonCode,
+          note: body?.note,
+        },
+      );
+
+    return toOrderDetailDto(order);
+  }
 }

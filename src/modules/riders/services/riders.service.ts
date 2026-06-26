@@ -31,6 +31,12 @@ export class RidersService {
     return rider;
   }
 
+  findEligibleRiders(options?: {
+    township?: string | null;
+  }): Promise<RiderOwnershipRecord[]> {
+    return this.ridersRepository.findEligibleRiders(options);
+  }
+
   buildOwnership(rider: RiderOwnershipRecord): RiderOwnershipEntity {
     return buildRiderOwnership(rider);
   }

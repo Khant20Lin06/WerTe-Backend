@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import {
   PaymentProvider,
@@ -20,10 +21,27 @@ export type ProviderWebhookSignatureVerificationResult = {
 
 @Injectable()
 export class ProviderWebhookSignatureService {
+  constructor(private readonly configService: ConfigService) {}
+
   verifySignature(
     input: VerifyProviderWebhookSignatureInput,
   ): ProviderWebhookSignatureVerificationResult {
     if (input.signingSecret === undefined || input.signingSecret === null) {
+      // Allow skipping only outside production so local/test environments work
+      // without secrets configured. In production a missing secret is a
+      // misconfiguration — treat it as a verification failure so unsigned
+      // webhooks are never silently accepted.
+      const isProduction =
+        this.configService.get<string>('NODE_ENV') === 'production';
+
+      if (isProduction) {
+        return {
+          status: ProviderEventVerificationStatus.FAILED,
+          failureCode: 'signing_secret_not_configured',
+          failureMessage: `${input.provider} webhook signing secret is not configured.`,
+        };
+      }
+
       return {
         status: ProviderEventVerificationStatus.SKIPPED,
         failureCode: null,

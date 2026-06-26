@@ -34,6 +34,9 @@ export class PromotionDto {
   @ApiPropertyOptional({ example: '2500' })
   maximumDiscountAmount!: string | null;
 
+  @ApiPropertyOptional({ example: 1 })
+  perCustomerLimit!: number | null;
+
   @ApiPropertyOptional({ example: '2026-05-03T00:00:00.000Z' })
   startsAt!: string | null;
 
@@ -42,6 +45,9 @@ export class PromotionDto {
 
   @ApiProperty({ example: true })
   isActive!: boolean;
+
+  @ApiPropertyOptional({ example: null })
+  deletedAt!: string | null;
 
   @ApiProperty({ example: '2026-05-02T10:00:00.000Z' })
   createdAt!: string;
@@ -61,9 +67,11 @@ export function toPromotionDto(promotion: PromotionEntity): PromotionDto {
     discountValue: promotion.discountValue,
     minimumSubtotalAmount: promotion.minimumSubtotalAmount,
     maximumDiscountAmount: promotion.maximumDiscountAmount,
+    perCustomerLimit: promotion.perCustomerLimit,
     startsAt: promotion.startsAt,
     endsAt: promotion.endsAt,
     isActive: promotion.isActive,
+    deletedAt: promotion.deletedAt,
     createdAt: promotion.createdAt,
     updatedAt: promotion.updatedAt,
   };

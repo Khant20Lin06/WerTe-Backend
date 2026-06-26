@@ -1,9 +1,11 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, PaymentMethod, PaymentStatus } from '@prisma/client';
 
 import { ErrorCodes } from '../../../common/constants/error-codes';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
+import { QueueJobNames, QueueNames } from '../../../infrastructure/queue/queue.constants';
+import { QueueService } from '../../../infrastructure/queue/queue.service';
 import { AuthenticatedUserEntity } from '../../auth/entities/authenticated-user.entity';
 import { SystemMessageService } from '../../messaging/services/system-message.service';
 import { MenuInventoryLifecycleService } from '../../menus/services/menu-inventory-lifecycle.service';
@@ -41,6 +43,7 @@ export class MerchantOrderHandlingService {
     private readonly systemMessageService: SystemMessageService,
     private readonly menuInventoryLifecycleService: MenuInventoryLifecycleService,
     private readonly notificationEventService: NotificationEventService,
+    private readonly queueService: QueueService,
   ) {}
 
   acceptCurrentMerchantOrder(
@@ -96,6 +99,19 @@ export class MerchantOrderHandlingService {
     });
   }
 
+  confirmPickupCurrentMerchantOrder(
+    currentUser: AuthenticatedUserEntity,
+    input: MerchantOrderActionInput | (MerchantOrderActionDto & { orderId: string }),
+  ): Promise<OrderDetailEntity> {
+    return this.handleMerchantAction(currentUser, input, {
+      targetStatus: OrderStatus.DELIVERED,
+      defaultReasonCode: 'customer_pickup_confirmed',
+      canTransition: (user, order) =>
+        this.orderPolicyService.canMerchantConfirmPickup(user, order),
+      conflictMessage: 'This order cannot be confirmed as picked up. It must be a PICKUP order in READY status.',
+    });
+  }
+
   private async handleMerchantAction(
     currentUser: AuthenticatedUserEntity,
     input: MerchantOrderActionInput,
@@ -142,6 +158,7 @@ export class MerchantOrderHandlingService {
     let restoredInventoryAlerts: Awaited<
       ReturnType<MenuInventoryLifecycleService['collectTrackedInventoryRestorationAlerts']>
     > = [];
+    const now = new Date();
     const updatedOrder = await this.prisma.runInTransaction(async (tx) => {
       const nextOrder = await this.ordersRepository.updateOrderStatus(
         input.orderId,
@@ -205,6 +222,21 @@ export class MerchantOrderHandlingService {
           );
       }
 
+      // Auto-settle COD payment when order reaches DELIVERED (pickup confirm or rider delivery).
+      if (config.targetStatus === OrderStatus.DELIVERED) {
+        await tx.payment.updateMany({
+          where: {
+            orderId: input.orderId,
+            method: PaymentMethod.CASH_ON_DELIVERY,
+            status: PaymentStatus.PENDING,
+          },
+          data: {
+            status: PaymentStatus.SUCCEEDED,
+            succeededAt: now,
+          },
+        });
+      }
+
       return nextOrder;
     });
 
@@ -222,6 +254,23 @@ export class MerchantOrderHandlingService {
         note: input.note ?? null,
       },
     });
+
+    // Trigger auto-dispatch when merchant accepts (rider-first: assign rider before preparing).
+    // For PICKUP orders, skip dispatch and auto-advance straight to PREPARING then READY
+    // so the merchant sees the "Picked Up" confirm button without extra manual steps.
+    if (config.targetStatus === OrderStatus.MERCHANT_ACCEPTED) {
+      if (orderDetail.deliveryType === 'PICKUP') {
+        await this._autoAdvancePickupToReady(currentUser, input.orderId);
+      } else {
+        await this.queueService.add(
+          QueueNames.dispatch,
+          QueueJobNames.dispatch.autoDispatchOrder,
+          { orderId: input.orderId },
+          { delayMs: 500 },
+        );
+      }
+    }
+
     await this.publishRestoredInventoryAlerts(
       restoredInventoryAlerts,
       orderDetail.orderId,
@@ -256,6 +305,31 @@ export class MerchantOrderHandlingService {
     }
   }
 
+  // Advance a PICKUP order from MERCHANT_ACCEPTED → PREPARING → READY automatically,
+  // so the merchant sees the "Picked Up" confirm button without extra manual steps.
+  private async _autoAdvancePickupToReady(
+    currentUser: AuthenticatedUserEntity,
+    orderId: string,
+  ): Promise<void> {
+    const input: MerchantOrderActionInput = { orderId, reasonCode: 'auto_pickup_advance' };
+
+    await this.handleMerchantAction(currentUser, input, {
+      targetStatus: OrderStatus.PREPARING,
+      defaultReasonCode: 'auto_pickup_advance',
+      canTransition: (user, order) =>
+        this.orderPolicyService.canMarkPreparing(user, order),
+      conflictMessage: 'Auto-advance PREPARING failed for pickup order.',
+    });
+
+    await this.handleMerchantAction(currentUser, input, {
+      targetStatus: OrderStatus.READY,
+      defaultReasonCode: 'auto_pickup_advance',
+      canTransition: (user, order) =>
+        this.orderPolicyService.canMarkReady(user, order),
+      conflictMessage: 'Auto-advance READY failed for pickup order.',
+    });
+  }
+
   private mapStatusToSystemMessageCode(targetStatus: OrderStatus) {
     switch (targetStatus) {
       case OrderStatus.MERCHANT_ACCEPTED:
@@ -266,6 +340,8 @@ export class MerchantOrderHandlingService {
         return 'ORDER_PREPARING' as const;
       case OrderStatus.READY:
         return 'ORDER_READY' as const;
+      case OrderStatus.DELIVERED:
+        return 'ORDER_DELIVERED' as const;
       default:
         return 'ADMIN_INTERVENTION' as const;
     }

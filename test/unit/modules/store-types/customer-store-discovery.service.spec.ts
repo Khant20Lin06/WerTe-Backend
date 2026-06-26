@@ -13,6 +13,7 @@ import { BranchCatalogEntity } from '../../../../src/modules/menus/entities/bran
 import { CustomerCatalogReadService } from '../../../../src/modules/menus/services/customer-catalog-read.service';
 import { CustomerStoreDiscoveryRecord } from '../../../../src/modules/store-types/entities/customer-store-discovery.entity';
 import { StoreTypesRepository } from '../../../../src/modules/store-types/repositories/store-types.repository';
+import { DiscoveryCacheService } from '../../../../src/modules/store-types/services/discovery-cache.service';
 import { CustomerStoreDiscoveryService } from '../../../../src/modules/store-types/services/customer-store-discovery.service';
 import { CustomerStoreSortBy } from '../../../../src/modules/store-types/dto/list-customer-stores-query.dto';
 
@@ -209,6 +210,7 @@ describe('CustomerStoreDiscoveryService', () => {
     const service = new CustomerStoreDiscoveryService(
       storeTypesRepository,
       {} as CustomerCatalogReadService,
+      { isCacheable: () => false, getList: jest.fn().mockResolvedValue(null), setList: jest.fn() } as unknown as DiscoveryCacheService,
     );
 
     const result = await service.listDiscoverableStores(customerUser, {
@@ -268,6 +270,7 @@ describe('CustomerStoreDiscoveryService', () => {
     const service = new CustomerStoreDiscoveryService(
       storeTypesRepository,
       {} as CustomerCatalogReadService,
+      { isCacheable: () => false, getList: jest.fn().mockResolvedValue(null), setList: jest.fn() } as unknown as DiscoveryCacheService,
     );
 
     const listResult = await service.listDiscoverableStores(customerUser, {
@@ -336,6 +339,7 @@ describe('CustomerStoreDiscoveryService', () => {
     const service = new CustomerStoreDiscoveryService(
       storeTypesRepository,
       {} as CustomerCatalogReadService,
+      { isCacheable: () => false, getList: jest.fn().mockResolvedValue(null), setList: jest.fn() } as unknown as DiscoveryCacheService,
     );
 
     const result = await service.listDiscoverableStores(customerUser, {
@@ -356,7 +360,10 @@ describe('CustomerStoreDiscoveryService', () => {
           storeTypes: [],
         }),
       ]),
-    } as unknown as StoreTypesRepository, {} as CustomerCatalogReadService);
+    } as unknown as StoreTypesRepository,
+      {} as CustomerCatalogReadService,
+      { isCacheable: () => false, getList: jest.fn().mockResolvedValue(null), setList: jest.fn() } as unknown as DiscoveryCacheService,
+    );
 
     await expect(service.listDiscoverableStores(customerUser, {})).resolves.toEqual(
       [],
@@ -377,6 +384,7 @@ describe('CustomerStoreDiscoveryService', () => {
     const service = new CustomerStoreDiscoveryService(
       storeTypesRepository,
       customerCatalogReadService,
+      { isCacheable: () => false, getList: jest.fn().mockResolvedValue(null), setList: jest.fn() } as unknown as DiscoveryCacheService,
     );
 
     const result = await service.getDiscoverableStoreDetail(
@@ -435,6 +443,7 @@ describe('CustomerStoreDiscoveryService', () => {
     const service = new CustomerStoreDiscoveryService(
       storeTypesRepository,
       customerCatalogReadService,
+      { isCacheable: () => false, getList: jest.fn().mockResolvedValue(null), setList: jest.fn() } as unknown as DiscoveryCacheService,
     );
 
     const result = await service.getDiscoverableStoreCatalogEntry(
@@ -475,6 +484,7 @@ describe('CustomerStoreDiscoveryService', () => {
           .fn()
           .mockResolvedValue(makeVisibleBranchCatalog()),
       } as unknown as CustomerCatalogReadService,
+      { isCacheable: () => false, getList: jest.fn().mockResolvedValue(null), setList: jest.fn() } as unknown as DiscoveryCacheService,
     );
 
     await expect(
@@ -493,6 +503,7 @@ describe('CustomerStoreDiscoveryService', () => {
     const service = new CustomerStoreDiscoveryService(
       {} as StoreTypesRepository,
       {} as CustomerCatalogReadService,
+      { isCacheable: () => false, getList: jest.fn().mockResolvedValue(null), setList: jest.fn() } as unknown as DiscoveryCacheService,
     );
 
     await expect(service.listDiscoverableStores(merchantUser, {})).rejects.toMatchObject(

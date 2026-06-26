@@ -15,9 +15,7 @@ export class DispatchRepository {
     return this.prisma.order.findMany({
       where: {
         OR: [
-          {
-            status: OrderStatus.PREPARING,
-          },
+          { status: OrderStatus.MERCHANT_ACCEPTED },
           {
             status: OrderStatus.RIDER_ASSIGNED,
             delivery: {
@@ -43,9 +41,7 @@ export class DispatchRepository {
       where: {
         id: orderId,
         OR: [
-          {
-            status: OrderStatus.PREPARING,
-          },
+          { status: OrderStatus.MERCHANT_ACCEPTED },
           {
             status: OrderStatus.RIDER_ASSIGNED,
             delivery: {
@@ -59,6 +55,26 @@ export class DispatchRepository {
         ],
       },
       include: dispatchQueueOrderInclude,
+    });
+  }
+
+  // Orders that are MERCHANT_ACCEPTED, have no delivery record, and require rider dispatch (DELIVERY type only).
+  findReadyOrdersWithoutRider(options?: {
+    township?: string | null;
+    limit?: number;
+  }): Promise<DispatchQueueEntryRecord[]> {
+    return this.prisma.order.findMany({
+      where: {
+        status: OrderStatus.MERCHANT_ACCEPTED,
+        delivery: { is: null },
+        deliveryType: 'DELIVERY',
+        ...(options?.township
+          ? { deliveryTownship: options.township }
+          : {}),
+      },
+      include: dispatchQueueOrderInclude,
+      orderBy: [{ placedAt: 'asc' }, { id: 'asc' }],
+      take: options?.limit ?? 20,
     });
   }
 }

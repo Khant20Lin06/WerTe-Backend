@@ -137,7 +137,7 @@ export function toBranchDto(branch: BranchOwnershipRecord): BranchDto {
     longitude: branch.longitude?.toString() ?? null,
     storeType: branch.storeType,
     status: branch.status,
-    operatingHours: (branch as any).operatingHours as Record<
+    operatingHours: branch.operatingHours as Record<
       string,
       { open: boolean; openTime?: string; closeTime?: string }
     > | null,
@@ -147,7 +147,7 @@ export function toBranchDto(branch: BranchOwnershipRecord): BranchDto {
       name: branchZone.zone.name,
       status: branchZone.zone.status,
     })),
-    createdAt: branch.createdAt.toISOString(),
-    updatedAt: branch.updatedAt.toISOString(),
+    createdAt: new Date(branch.createdAt).toISOString(),
+    updatedAt: new Date(branch.updatedAt).toISOString(),
   };
 }

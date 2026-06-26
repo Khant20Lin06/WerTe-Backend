@@ -6,12 +6,14 @@ import { MerchantPolicyService } from './policies/merchant-policy.service';
 import { MerchantsRepository } from './repositories/merchants.repository';
 import { AdminMerchantManagementService } from './services/admin-merchant-management.service';
 import { MerchantAccountService } from './services/merchant-account.service';
+import { MerchantCacheService } from './services/merchant-cache.service';
 import { MerchantsService } from './services/merchants.service';
 
 @Module({
   controllers: [MerchantProfileController, AdminMerchantsController],
   providers: [
     MerchantsRepository,
+    MerchantCacheService,
     MerchantsService,
     MerchantAccountService,
     MerchantPolicyService,

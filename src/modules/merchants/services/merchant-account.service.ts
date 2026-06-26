@@ -42,6 +42,11 @@ export class MerchantAccountService {
         : {}),
     });
 
+    await this.merchantsService.invalidateCache(
+      updatedMerchant.id,
+      updatedMerchant.user.id,
+    );
+
     return toMerchantProfileDto(updatedMerchant);
   }
 

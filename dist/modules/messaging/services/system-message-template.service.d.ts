@@ -9,12 +9,12 @@ export declare class SystemMessageTemplateService {
         bodyTemplate: string;
         isActive?: boolean;
     }): import(".prisma/client").Prisma.Prisma__SystemMessageTemplateClient<{
-        code: import(".prisma/client").$Enums.SystemMessageCode;
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        label: string;
+        code: import(".prisma/client").$Enums.SystemMessageCode;
         isActive: boolean;
+        label: string;
         bodyTemplate: string;
     }, never, import("@prisma/client/runtime/library").DefaultArgs>;
     render(code: SystemMessageCode, variables: Record<string, string | null | undefined>): Promise<string>;

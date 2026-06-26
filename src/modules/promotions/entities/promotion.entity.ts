@@ -10,9 +10,11 @@ export const promotionSelect = Prisma.validator<Prisma.PromotionSelect>()({
   discountValue: true,
   minimumSubtotalAmount: true,
   maximumDiscountAmount: true,
+  perCustomerLimit: true,
   startsAt: true,
   endsAt: true,
   isActive: true,
+  deletedAt: true,
   createdAt: true,
   updatedAt: true,
 });
@@ -31,9 +33,11 @@ export class PromotionEntity {
   discountValue!: string;
   minimumSubtotalAmount!: string;
   maximumDiscountAmount!: string | null;
+  perCustomerLimit!: number | null;
   startsAt!: string | null;
   endsAt!: string | null;
   isActive!: boolean;
+  deletedAt!: string | null;
   createdAt!: string;
   updatedAt!: string;
 }
@@ -48,11 +52,12 @@ export function buildPromotionEntity(record: PromotionRecord): PromotionEntity {
     discountType: record.discountType,
     discountValue: record.discountValue.toString(),
     minimumSubtotalAmount: record.minimumSubtotalAmount.toString(),
-    maximumDiscountAmount:
-      record.maximumDiscountAmount?.toString() ?? null,
+    maximumDiscountAmount: record.maximumDiscountAmount?.toString() ?? null,
+    perCustomerLimit: record.perCustomerLimit,
     startsAt: record.startsAt?.toISOString() ?? null,
     endsAt: record.endsAt?.toISOString() ?? null,
     isActive: record.isActive,
+    deletedAt: record.deletedAt?.toISOString() ?? null,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
   };

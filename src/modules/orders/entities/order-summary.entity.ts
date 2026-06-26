@@ -1,5 +1,6 @@
 import {
   BranchStatus,
+  DeliveryType,
   MerchantStatus,
   OrderStatus,
   Prisma,
@@ -134,6 +135,7 @@ export class OrderSummaryEntity {
   addressId!: string | null;
   cartId!: string | null;
   status!: OrderStatus;
+  deliveryType!: DeliveryType;
   currencyCode!: string;
   appliedPromotion?: AppliedPromotionEntity | null;
   subtotalAmount!: string;
@@ -158,6 +160,7 @@ export function buildOrderSummary(order: OrderSummaryRecord): OrderSummaryEntity
     addressId: order.addressId,
     cartId: order.cartId,
     status: order.status,
+    deliveryType: order.deliveryType,
     currencyCode: order.currencyCode,
     appliedPromotion: buildAppliedPromotionEntityFromSnapshot({
       promotionId: order.promotionId,

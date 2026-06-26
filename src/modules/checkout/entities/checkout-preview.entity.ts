@@ -21,7 +21,7 @@ export class CheckoutPreviewPricingEntity {
 export class CheckoutPreviewEntity {
   currencyCode!: string;
   customer!: CheckoutContextCustomerEntity;
-  address!: CheckoutContextAddressEntity;
+  address!: CheckoutContextAddressEntity | null;
   branch!: CheckoutContextBranchEntity;
   cart!: CartAggregateEntity;
   pricing!: CheckoutPreviewPricingEntity;

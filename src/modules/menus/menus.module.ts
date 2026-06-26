@@ -21,6 +21,7 @@ import { CustomerCatalogReadService } from './services/customer-catalog-read.ser
 import { MerchantCatalogReadService } from './services/merchant-catalog-read.service';
 import { MerchantInventoryReadService } from './services/merchant-inventory-read.service';
 import { MerchantMenuCategoriesService } from './services/merchant-menu-categories.service';
+import { MenuItemInventoryService } from './services/menu-item-inventory.service';
 import { MerchantMenuItemsService } from './services/merchant-menu-items.service';
 import { MerchantMenuItemInventoryLotsService } from './services/merchant-menu-item-inventory-lots.service';
 import { MerchantMenuOptionGroupsService } from './services/merchant-menu-option-groups.service';
@@ -50,6 +51,7 @@ import { MenusService } from './services/menus.service';
     CustomerCatalogReadService,
     MerchantMenuCategoriesService,
     MenuCategoryPolicyService,
+    MenuItemInventoryService,
     MerchantMenuItemsService,
     MerchantMenuItemInventoryLotsService,
     MenuItemPolicyService,

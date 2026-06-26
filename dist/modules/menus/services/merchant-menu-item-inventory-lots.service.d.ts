@@ -1,0 +1,33 @@
+import { PrismaService } from '../../../infrastructure/database/prisma.service';
+import { AuditService } from '../../audit/services/audit.service';
+import { AuthenticatedUserEntity } from '../../auth/entities/authenticated-user.entity';
+import { NotificationEventService } from '../../notifications/services/notification-event.service';
+import { AdjustInventoryDto } from '../dto/adjust-inventory.dto';
+import { CreateItemInventoryLotDto } from '../dto/create-item-inventory-lot.dto';
+import { ItemInventoryLotDto } from '../dto/item-inventory-lot.dto';
+import { UpdateItemInventoryLotDto } from '../dto/update-item-inventory-lot.dto';
+import { MenusRepository } from '../repositories/menus.repository';
+import { MenusService } from './menus.service';
+export declare class MerchantMenuItemInventoryLotsService {
+    private readonly prisma;
+    private readonly menusService;
+    private readonly menusRepository;
+    private readonly auditService;
+    private readonly notificationEventService;
+    constructor(prisma: PrismaService, menusService: MenusService, menusRepository: MenusRepository, auditService: AuditService, notificationEventService: NotificationEventService);
+    listItemInventoryLots(currentUser: AuthenticatedUserEntity, branchId: string, itemId: string): Promise<ItemInventoryLotDto[]>;
+    createItemInventoryLot(currentUser: AuthenticatedUserEntity, branchId: string, itemId: string, payload: CreateItemInventoryLotDto): Promise<ItemInventoryLotDto>;
+    updateItemInventoryLot(currentUser: AuthenticatedUserEntity, branchId: string, itemId: string, lotId: string, payload: UpdateItemInventoryLotDto): Promise<ItemInventoryLotDto>;
+    adjustItemInventoryLot(currentUser: AuthenticatedUserEntity, branchId: string, itemId: string, lotId: string, payload: AdjustInventoryDto): Promise<ItemInventoryLotDto>;
+    hasItemInventoryLots(itemId: string): Promise<boolean>;
+    private resolveOwnedItem;
+    private resolveOwnedLot;
+    private assertStockTrackingEnabled;
+    private requireBatchNo;
+    private requireReasonCode;
+    private normalizeOptionalString;
+    private toOptionalDate;
+    private toDateOrUndefined;
+    private publishInventoryAlertIfNeeded;
+    private resolveInventoryAttentionLevel;
+}

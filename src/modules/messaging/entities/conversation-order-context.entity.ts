@@ -25,6 +25,7 @@ export const conversationOrderContextSelect =
     },
     delivery: {
       select: {
+        id: true,
         rider: {
           select: {
             id: true,
@@ -56,6 +57,7 @@ export class ConversationOrderContextEntity {
   branch!: {
     branchName: string;
   };
+  deliveryId?: string | null;
   rider!: {
     riderId: string;
     userId: string;
@@ -82,6 +84,7 @@ export function buildConversationOrderContext(
     branch: {
       branchName: record.branch.name,
     },
+    deliveryId: record.delivery?.id ?? null,
     rider:
       record.delivery?.rider === null || record.delivery?.rider === undefined
         ? null

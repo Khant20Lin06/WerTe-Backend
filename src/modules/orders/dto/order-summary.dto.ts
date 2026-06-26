@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { DeliveryType } from '@prisma/client';
 
 import {
   AppliedPromotionDto,
@@ -164,6 +165,9 @@ export class OrderSummaryDto {
   @ApiProperty({ example: 'PLACED' })
   status!: string;
 
+  @ApiProperty({ enum: DeliveryType, example: DeliveryType.DELIVERY })
+  deliveryType!: DeliveryType;
+
   @ApiProperty({ example: 'MMK' })
   currencyCode!: string;
 
@@ -213,6 +217,7 @@ export function toOrderSummaryDto(order: OrderSummaryEntity): OrderSummaryDto {
     addressId: order.addressId,
     cartId: order.cartId,
     status: order.status,
+    deliveryType: order.deliveryType,
     currencyCode: order.currencyCode,
     appliedPromotion: toAppliedPromotionDto(order.appliedPromotion),
     subtotalAmount: order.subtotalAmount,

@@ -2,6 +2,8 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import {
   DeliveryStatus,
   OrderStatus,
+  PaymentMethod,
+  PaymentStatus,
   Prisma,
   SystemMessageCode,
 } from '@prisma/client';
@@ -9,6 +11,8 @@ import {
 import { ErrorCodes } from '../../../common/constants/error-codes';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
+import { QueueJobNames, QueueNames } from '../../../infrastructure/queue/queue.constants';
+import { QueueService } from '../../../infrastructure/queue/queue.service';
 import { AuthenticatedUserEntity } from '../../auth/entities/authenticated-user.entity';
 import { SystemMessageService } from '../../messaging/services/system-message.service';
 import { OrdersRepository } from '../../orders/repositories/orders.repository';
@@ -61,6 +65,7 @@ export class RiderDeliveryActionsService {
     private readonly ordersRepository: OrdersRepository,
     private readonly deliveryQueryService: DeliveryQueryService,
     private readonly systemMessageService: SystemMessageService,
+    private readonly queueService: QueueService,
   ) {}
 
   acceptCurrentRiderDeliveryRequest(
@@ -81,12 +86,12 @@ export class RiderDeliveryActionsService {
     });
   }
 
-  rejectCurrentRiderDeliveryRequest(
+  async rejectCurrentRiderDeliveryRequest(
     currentUser: AuthenticatedUserEntity,
     input: RiderDeliveryActionInput,
   ): Promise<DeliveryDetailEntity> {
-    return this.handleTransition(currentUser, input, {
-      targetOrderStatus: OrderStatus.PREPARING,
+    const result = await this.handleTransition(currentUser, input, {
+      targetOrderStatus: OrderStatus.MERCHANT_ACCEPTED,
       targetDeliveryStatus: DeliveryStatus.PENDING_ASSIGNMENT,
       defaultReasonCode: 'rider_rejected_assignment',
       conflictMessage: 'This delivery request can no longer be rejected.',
@@ -107,6 +112,16 @@ export class RiderDeliveryActionsService {
         failureNote: null,
       }),
     });
+
+    // Re-dispatch after rider rejection so another rider can be assigned.
+    await this.queueService.add(
+      QueueNames.dispatch,
+      QueueJobNames.dispatch.autoDispatchOrder,
+      { orderId: result.orderId },
+      { delayMs: 500 },
+    );
+
+    return result;
   }
 
   markCurrentRiderPickedUp(
@@ -244,6 +259,21 @@ export class RiderDeliveryActionsService {
         },
         tx,
       );
+
+      // Auto-settle COD payment when rider marks order as delivered.
+      if (config.targetOrderStatus === OrderStatus.DELIVERED) {
+        await tx.payment.updateMany({
+          where: {
+            orderId: delivery.orderId,
+            method: PaymentMethod.CASH_ON_DELIVERY,
+            status: PaymentStatus.PENDING,
+          },
+          data: {
+            status: PaymentStatus.SUCCEEDED,
+            succeededAt: now,
+          },
+        });
+      }
     });
 
     const updatedDelivery = config.reloadUnscoped

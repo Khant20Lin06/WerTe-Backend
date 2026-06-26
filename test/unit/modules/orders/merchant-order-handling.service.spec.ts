@@ -3,6 +3,7 @@ import { OrderStatus, UserRole, UserStatus } from '@prisma/client';
 
 import { makeAuthenticatedUser } from '../../helpers/authenticated-user.factory';
 import { PrismaService } from '../../../../src/infrastructure/database/prisma.service';
+import { QueueService } from '../../../../src/infrastructure/queue/queue.service';
 import { SystemMessageService } from '../../../../src/modules/messaging/services/system-message.service';
 import { MenuInventoryLifecycleService } from '../../../../src/modules/menus/services/menu-inventory-lifecycle.service';
 import { NotificationEventService } from '../../../../src/modules/notifications/services/notification-event.service';
@@ -108,6 +109,7 @@ describe('MerchantOrderHandlingService', () => {
         .fn()
         .mockResolvedValue(undefined),
     } as unknown as jest.Mocked<NotificationEventService>;
+    const queueService = { add: jest.fn().mockResolvedValue(undefined) } as unknown as jest.Mocked<QueueService>;
     const service = new MerchantOrderHandlingService(
       prisma,
       repository,
@@ -116,6 +118,7 @@ describe('MerchantOrderHandlingService', () => {
       systemMessageService,
       menuInventoryLifecycleService,
       notificationEventService,
+      queueService,
     );
 
     return {

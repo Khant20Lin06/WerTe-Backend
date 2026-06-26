@@ -1,4 +1,4 @@
-import { PaymentMethod, PaymentProvider } from '@prisma/client';
+import { DeliveryType, PaymentMethod, PaymentProvider } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
 
@@ -12,8 +12,17 @@ export class CreateOrderDto {
   branchId!: string;
 
   @ApiPropertyOptional({
+    description: 'Delivery type: DELIVERY (rider brings to address) or PICKUP (customer collects from branch). Defaults to DELIVERY.',
+    enum: DeliveryType,
+    example: DeliveryType.DELIVERY,
+  })
+  @IsOptional()
+  @IsEnum(DeliveryType)
+  deliveryType?: DeliveryType;
+
+  @ApiPropertyOptional({
     description:
-      'Optional customer-owned delivery address identifier. When omitted, the default address is used.',
+      'Customer delivery address. Required when deliveryType is DELIVERY. Ignored for PICKUP orders.',
     example: 'addr_1',
   })
   @IsOptional()

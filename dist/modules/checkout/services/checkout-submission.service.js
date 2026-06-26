@@ -15,93 +15,133 @@ const client_1 = require("@prisma/client");
 const error_codes_1 = require("../../../common/constants/error-codes");
 const app_exception_1 = require("../../../common/exceptions/app.exception");
 const prisma_service_1 = require("../../../infrastructure/database/prisma.service");
+const queue_constants_1 = require("../../../infrastructure/queue/queue.constants");
 const queue_service_1 = require("../../../infrastructure/queue/queue.service");
 const carts_repository_1 = require("../../carts/repositories/carts.repository");
 const system_message_service_1 = require("../../messaging/services/system-message.service");
+const menu_inventory_lifecycle_service_1 = require("../../menus/services/menu-inventory-lifecycle.service");
+const menus_service_1 = require("../../menus/services/menus.service");
+const item_variant_combination_util_1 = require("../../menus/utils/item-variant-combination.util");
+const notification_event_service_1 = require("../../notifications/services/notification-event.service");
 const orders_repository_1 = require("../../orders/repositories/orders.repository");
+const checkout_payment_intent_service_1 = require("../../payments/services/checkout-payment-intent.service");
+const promotions_repository_1 = require("../../promotions/repositories/promotions.repository");
 const checkout_submission_entity_1 = require("../entities/checkout-submission.entity");
 const checkout_customer_access_policy_helper_1 = require("../policies/checkout-customer-access-policy.helper");
 const checkout_context_service_1 = require("./checkout-context.service");
 const checkout_pricing_service_1 = require("./checkout-pricing.service");
 let CheckoutSubmissionService = class CheckoutSubmissionService {
-    constructor(prisma, checkoutContextService, checkoutPricingService, ordersRepository, cartsRepository, queueService, systemMessageService) {
+    constructor(prisma, checkoutContextService, checkoutPricingService, ordersRepository, cartsRepository, menusService, menuInventoryLifecycleService, checkoutPaymentIntentService, promotionsRepository, queueService, systemMessageService, notificationEventService) {
         this.prisma = prisma;
         this.checkoutContextService = checkoutContextService;
         this.checkoutPricingService = checkoutPricingService;
         this.ordersRepository = ordersRepository;
         this.cartsRepository = cartsRepository;
+        this.menusService = menusService;
+        this.menuInventoryLifecycleService = menuInventoryLifecycleService;
+        this.checkoutPaymentIntentService = checkoutPaymentIntentService;
+        this.promotionsRepository = promotionsRepository;
         this.queueService = queueService;
         this.systemMessageService = systemMessageService;
+        this.notificationEventService = notificationEventService;
     }
     async submitCurrentCustomerCheckout(currentUser, input) {
+        const isPickup = input.deliveryType === client_1.DeliveryType.PICKUP;
         const context = await this.checkoutContextService.getValidatedCurrentCustomerCheckoutContext(currentUser, {
             branchId: input.branchId,
             addressId: input.addressId,
+            deliveryType: input.deliveryType,
         });
-        const pricing = this.checkoutPricingService.buildPricingBreakdown(context);
+        const pricing = await this.checkoutPricingService.buildPricingBreakdown(context, { promotionCode: input.promotionCode });
+        let reservedInventoryAlerts = {
+            alerts: [],
+            inventoryLotAllocationsByLineKey: {},
+        };
         try {
             const result = await this.prisma.runInTransaction(async (tx) => {
                 const existingOrder = await this.ordersRepository.findByIdempotencyKey(input.idempotencyKey, tx);
                 if (existingOrder !== null) {
                     this.assertIdempotentOrderBelongsToCustomer(currentUser, context, existingOrder.customerProfileId);
+                    const existingPaymentIntent = await this.resolveExistingOrCreatePaymentIntent(input, context, existingOrder, tx);
                     return {
                         order: existingOrder,
+                        paymentIntent: existingPaymentIntent,
                         wasCreated: false,
                     };
                 }
+                const orderCartItems = await this.buildOrderCartItems(context);
+                reservedInventoryAlerts =
+                    await this.menuInventoryLifecycleService.reserveTrackedInventoryForOrder(orderCartItems, tx);
+                const effectiveDeliveryFee = isPickup
+                    ? new client_1.Prisma.Decimal(0)
+                    : pricing.deliveryFee;
+                const effectiveTotalAmount = isPickup
+                    ? pricing.subtotalAmount.minus(pricing.discountAmount)
+                    : pricing.totalAmount;
                 const order = await this.ordersRepository.createCheckoutOrder({
                     orderCode: this.buildOrderCode(),
                     customerProfileId: context.customer.customerProfileId,
                     branchId: context.branch.branchId,
-                    addressId: context.address.addressId,
+                    addressId: context.address?.addressId ?? null,
                     cartId: context.cart.cartId,
                     idempotencyKey: input.idempotencyKey,
+                    deliveryType: input.deliveryType ?? client_1.DeliveryType.DELIVERY,
+                    promotionId: pricing.appliedPromotion?.promotionId ?? null,
+                    promotionCodeSnapshot: pricing.appliedPromotion?.code ?? null,
+                    promotionNameSnapshot: pricing.appliedPromotion?.name ?? null,
+                    promotionDiscountTypeSnapshot: pricing.appliedPromotion?.discountType ?? null,
                     status: client_1.OrderStatus.PLACED,
                     currencyCode: context.currencyCode,
                     subtotalAmount: pricing.subtotalAmount,
                     discountAmount: pricing.discountAmount,
-                    deliveryFee: pricing.deliveryFee,
-                    totalAmount: pricing.totalAmount,
-                    deliveryLabel: context.address.label,
-                    deliveryLine1: context.address.line1,
-                    deliveryLine2: context.address.line2,
-                    deliveryLandmark: context.address.landmark,
-                    deliveryTownship: context.address.township,
-                    deliveryCity: context.address.city,
-                    deliveryPostalCode: context.address.postalCode,
-                    deliveryInstructions: context.address.deliveryInstructions,
-                    deliveryLatitude: new client_1.Prisma.Decimal(context.address.latitude),
-                    deliveryLongitude: new client_1.Prisma.Decimal(context.address.longitude),
+                    deliveryFee: effectiveDeliveryFee,
+                    totalAmount: effectiveTotalAmount,
+                    deliveryLabel: context.address?.label ?? null,
+                    deliveryLine1: context.address?.line1 ?? null,
+                    deliveryLine2: context.address?.line2 ?? null,
+                    deliveryLandmark: context.address?.landmark ?? null,
+                    deliveryTownship: context.address?.township ?? null,
+                    deliveryCity: context.address?.city ?? null,
+                    deliveryPostalCode: context.address?.postalCode ?? null,
+                    deliveryInstructions: context.address?.deliveryInstructions ?? null,
+                    deliveryLatitude: context.address
+                        ? new client_1.Prisma.Decimal(context.address.latitude)
+                        : null,
+                    deliveryLongitude: context.address
+                        ? new client_1.Prisma.Decimal(context.address.longitude)
+                        : null,
                     changedByUserId: currentUser.userId,
-                    cartItems: context.cart.items.map((item) => ({
-                        menuItemId: item.menuItemId,
-                        categoryId: item.categoryId ?? null,
-                        nameSnapshot: item.menuItemName,
-                        descriptionSnapshot: item.menuItemDescription ?? null,
-                        imageUrlSnapshot: item.menuItemImageUrl ?? null,
-                        unitBasePriceSnapshot: new client_1.Prisma.Decimal(item.menuItemBasePrice),
-                        unitPriceSnapshot: new client_1.Prisma.Decimal(item.unitPriceSnapshot),
-                        quantity: item.quantity,
-                        lineTotal: new client_1.Prisma.Decimal(item.lineTotal),
-                        selectedOptions: item.selectedOptions.map((selectedOption) => ({
-                            itemOptionId: selectedOption.itemOptionId,
-                            optionGroupId: selectedOption.optionGroupId,
-                            optionGroupNameSnapshot: selectedOption.optionGroupName,
-                            nameSnapshot: selectedOption.nameSnapshot,
-                            priceDeltaSnapshot: new client_1.Prisma.Decimal(selectedOption.priceDeltaSnapshot),
-                        })),
+                    cartItems: orderCartItems.map((cartItem) => ({
+                        ...cartItem,
+                        inventoryLotAllocations: reservedInventoryAlerts.inventoryLotAllocationsByLineKey[cartItem.lineKey] ?? [],
                     })),
                 }, tx);
-                await this.cartsRepository.updateCart(context.cart.cartId, {
-                    status: client_1.CartStatus.CHECKED_OUT,
+                const paymentIntent = await this.checkoutPaymentIntentService.createCheckoutPaymentIntent({
+                    orderId: order.id,
+                    orderCode: order.orderCode,
+                    customerProfileId: context.customer.customerProfileId,
+                    amount: pricing.totalAmount,
+                    currencyCode: context.currencyCode,
+                    idempotencyKey: input.idempotencyKey,
+                    paymentMethod: input.paymentMethod,
+                    paymentProvider: input.paymentProvider,
                 }, tx);
+                await this.cartsRepository.updateCart(context.cart.cartId, { status: client_1.CartStatus.CHECKED_OUT }, tx);
+                if (pricing.appliedPromotion?.promotionId) {
+                    await this.promotionsRepository.createUsage({
+                        promotionId: pricing.appliedPromotion.promotionId,
+                        customerProfileId: context.customer.customerProfileId,
+                        orderId: order.id,
+                    }, tx);
+                }
                 return {
                     order,
+                    paymentIntent,
                     wasCreated: true,
                 };
             });
             if (result.wasCreated) {
-                await this.queueService.add('order-timeouts', 'start-timeout', {
+                await this.queueService.add(queue_constants_1.QueueNames.orderTimeouts, queue_constants_1.QueueJobNames.orderTimeouts.startTimeout, {
                     orderId: result.order.id,
                 });
                 await this.systemMessageService.publishOrderEvent(currentUser, {
@@ -115,16 +155,19 @@ let CheckoutSubmissionService = class CheckoutSubmissionService {
                         orderCode: result.order.orderCode,
                     },
                 });
+                await this.publishReservedInventoryAlerts(reservedInventoryAlerts.alerts);
             }
             return (0, checkout_submission_entity_1.buildCheckoutSubmission)(result.order, {
                 isIdempotentReplay: !result.wasCreated,
+                paymentIntent: result.paymentIntent,
             });
         }
         catch (error) {
-            const replayOrder = await this.tryResolveReplayAfterUniqueConstraint(error, context, input.idempotencyKey);
-            if (replayOrder !== null) {
-                return (0, checkout_submission_entity_1.buildCheckoutSubmission)(replayOrder, {
+            const replayResult = await this.tryResolveReplayAfterUniqueConstraint(error, context, input.idempotencyKey);
+            if (replayResult !== null) {
+                return (0, checkout_submission_entity_1.buildCheckoutSubmission)(replayResult.order, {
                     isIdempotentReplay: true,
+                    paymentIntent: replayResult.paymentIntent,
                 });
             }
             throw error;
@@ -133,6 +176,64 @@ let CheckoutSubmissionService = class CheckoutSubmissionService {
     buildOrderCode() {
         const suffix = Date.now().toString().slice(-8);
         return `ORD-${suffix}`;
+    }
+    async buildOrderCartItems(context) {
+        const { branchId } = context.branch;
+        const menuItemIds = context.cart.items.map((i) => i.menuItemId);
+        const [menuItems, allOptions, allVariantCombinations] = await Promise.all([
+            this.menusService.listItemsByIds(menuItemIds),
+            this.menusService.listOptionsByBranchId(branchId),
+            this.menusService.listVariantCombinationsByMenuItemIds(menuItemIds),
+        ]);
+        const menuItemById = new Map(menuItems.map((m) => [m.id, m]));
+        const optionById = new Map(allOptions.map((o) => [o.id, o]));
+        const optionGroupKindById = new Map(allOptions.map((o) => [o.group.id, o.group.kind]));
+        const optionStockTrackedById = new Map(allOptions.map((o) => [o.id, o.isStockTracked]));
+        const combinationByKey = new Map(allVariantCombinations.map((c) => [`${c.menuItemId}:${c.signature}`, c]));
+        return context.cart.items.map((item) => {
+            const menuItem = menuItemById.get(item.menuItemId);
+            const selectedVariantOptionIds = item.selectedOptions
+                .map((so) => optionById.get(so.itemOptionId))
+                .filter((option) => option !== undefined &&
+                option.group.kind === client_1.ItemOptionGroupKind.VARIANT_SELECTOR)
+                .map((option) => option.id);
+            const signature = (0, item_variant_combination_util_1.buildVariantCombinationSignature)(selectedVariantOptionIds);
+            const selectedVariantCombination = selectedVariantOptionIds.length > 0
+                ? (combinationByKey.get(`${item.menuItemId}:${signature}`) ?? null)
+                : null;
+            if (selectedVariantOptionIds.length > 0 && selectedVariantCombination === null) {
+                throw new app_exception_1.AppException('The selected variant combination is no longer valid for checkout submission.', common_1.HttpStatus.CONFLICT, {
+                    code: error_codes_1.ErrorCodes.conflict,
+                    details: { menuItemId: item.menuItemId, selectedVariantOptionIds },
+                });
+            }
+            return {
+                lineKey: item.cartItemId,
+                menuItemId: item.menuItemId,
+                categoryId: item.categoryId ?? null,
+                nameSnapshot: item.menuItemName,
+                descriptionSnapshot: item.menuItemDescription ?? null,
+                imageUrlSnapshot: item.menuItemImageUrl ?? null,
+                selectedVariantCombinationId: selectedVariantCombination?.id ?? null,
+                selectedVariantCombinationNameSnapshot: selectedVariantCombination?.name ?? null,
+                menuItemStockTrackedSnapshot: menuItem?.isStockTracked ?? false,
+                variantCombinationStockTrackedSnapshot: selectedVariantCombination?.isStockTracked ?? false,
+                unitBasePriceSnapshot: new client_1.Prisma.Decimal(item.menuItemBasePrice),
+                unitPriceSnapshot: new client_1.Prisma.Decimal(item.unitPriceSnapshot),
+                quantity: item.quantity,
+                lineTotal: new client_1.Prisma.Decimal(item.lineTotal),
+                selectedOptions: item.selectedOptions.map((selectedOption) => ({
+                    itemOptionId: selectedOption.itemOptionId,
+                    optionGroupId: selectedOption.optionGroupId,
+                    optionGroupNameSnapshot: selectedOption.optionGroupName,
+                    optionGroupKindSnapshot: optionGroupKindById.get(selectedOption.optionGroupId) ??
+                        client_1.ItemOptionGroupKind.ADD_ON,
+                    itemOptionStockTrackedSnapshot: optionStockTrackedById.get(selectedOption.itemOptionId) ?? false,
+                    nameSnapshot: selectedOption.nameSnapshot,
+                    priceDeltaSnapshot: new client_1.Prisma.Decimal(selectedOption.priceDeltaSnapshot),
+                })),
+            };
+        });
     }
     assertIdempotentOrderBelongsToCustomer(currentUser, context, customerProfileId) {
         if (!(0, checkout_customer_access_policy_helper_1.hasCheckoutCustomerAccess)({
@@ -172,7 +273,36 @@ let CheckoutSubmissionService = class CheckoutSubmissionService {
                 customerProfileId: context.customer.customerProfileId,
             },
         }, context, existingOrder.customerProfileId);
-        return existingOrder;
+        const existingPaymentIntent = await this.resolveExistingOrCreatePaymentIntent({
+            branchId: context.branch.branchId,
+            addressId: context.address?.addressId,
+            idempotencyKey,
+        }, context, existingOrder);
+        return {
+            order: existingOrder,
+            paymentIntent: existingPaymentIntent,
+        };
+    }
+    async resolveExistingOrCreatePaymentIntent(input, context, existingOrder, client) {
+        const existingPaymentIntent = await this.checkoutPaymentIntentService.findByIdempotencyKey(input.idempotencyKey, client);
+        if (existingPaymentIntent !== null) {
+            return existingPaymentIntent;
+        }
+        return this.checkoutPaymentIntentService.createCheckoutPaymentIntent({
+            orderId: existingOrder.id,
+            orderCode: existingOrder.orderCode,
+            customerProfileId: existingOrder.customerProfileId,
+            amount: existingOrder.totalAmount,
+            currencyCode: existingOrder.currencyCode,
+            idempotencyKey: input.idempotencyKey,
+            paymentMethod: input.paymentMethod,
+            paymentProvider: input.paymentProvider,
+        }, client);
+    }
+    async publishReservedInventoryAlerts(alerts) {
+        for (const alert of alerts) {
+            await this.notificationEventService.publishMerchantInventoryAlert(alert);
+        }
     }
 };
 exports.CheckoutSubmissionService = CheckoutSubmissionService;
@@ -183,7 +313,12 @@ exports.CheckoutSubmissionService = CheckoutSubmissionService = __decorate([
         checkout_pricing_service_1.CheckoutPricingService,
         orders_repository_1.OrdersRepository,
         carts_repository_1.CartsRepository,
+        menus_service_1.MenusService,
+        menu_inventory_lifecycle_service_1.MenuInventoryLifecycleService,
+        checkout_payment_intent_service_1.CheckoutPaymentIntentService,
+        promotions_repository_1.PromotionsRepository,
         queue_service_1.QueueService,
-        system_message_service_1.SystemMessageService])
+        system_message_service_1.SystemMessageService,
+        notification_event_service_1.NotificationEventService])
 ], CheckoutSubmissionService);
 //# sourceMappingURL=checkout-submission.service.js.map

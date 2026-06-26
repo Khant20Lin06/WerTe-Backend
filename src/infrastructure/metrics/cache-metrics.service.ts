@@ -1,0 +1,27 @@
+import { Injectable } from '@nestjs/common';
+import { Counter } from 'prom-client';
+
+import { getOrCreateCounter } from './metrics.registry';
+
+@Injectable()
+export class CacheMetricsService {
+  readonly cacheHitsTotal: Counter = getOrCreateCounter({
+    name: 'cache_hits_total',
+    help: 'Total number of cache hits',
+    labelNames: ['cache'],
+  });
+
+  readonly cacheMissesTotal: Counter = getOrCreateCounter({
+    name: 'cache_misses_total',
+    help: 'Total number of cache misses',
+    labelNames: ['cache'],
+  });
+
+  hit(cache: string): void {
+    this.cacheHitsTotal.inc({ cache });
+  }
+
+  miss(cache: string): void {
+    this.cacheMissesTotal.inc({ cache });
+  }
+}

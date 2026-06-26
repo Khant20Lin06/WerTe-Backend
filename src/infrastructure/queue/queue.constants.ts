@@ -4,6 +4,7 @@ export const QueueNames = {
   messagingFallback: 'messaging-fallback',
   riderLocationCleanup: 'rider-location-cleanup',
   providerWebhooks: 'provider-webhooks',
+  dispatch: 'dispatch',
 } as const;
 
 export const QueueJobNames = {
@@ -24,6 +25,10 @@ export const QueueJobNames = {
     processPaymentEvent: 'process-payment-provider-event',
     processRefundEvent: 'process-refund-provider-event',
     reconcileEvents: 'reconcile-provider-events',
+  },
+  dispatch: {
+    autoDispatchOrder: 'auto-dispatch-order',
+    autoDispatchPendingForRider: 'auto-dispatch-pending-for-rider',
   },
 } as const;
 

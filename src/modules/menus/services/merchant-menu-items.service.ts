@@ -13,7 +13,6 @@ import { AuditService } from '../../audit/services/audit.service';
 import { AuthenticatedUserEntity } from '../../auth/entities/authenticated-user.entity';
 import { BranchOwnershipRecord } from '../../branches/entities/branch-ownership.entity';
 import { BranchesService } from '../../branches/services/branches.service';
-import { NotificationEventService } from '../../notifications/services/notification-event.service';
 import { AdjustInventoryDto } from '../dto/adjust-inventory.dto';
 import { CreateMenuItemDto } from '../dto/create-menu-item.dto';
 import { MenuItemDto, toMenuItemDto } from '../dto/menu-item.dto';
@@ -31,6 +30,7 @@ import {
   buildMenuVerticalCatalogRuleProfiles,
   MenuVerticalStoreTypeSummary,
 } from '../utils/menu-vertical-catalog-rule.util';
+import { MenuItemInventoryService } from './menu-item-inventory.service';
 import { MenusService } from './menus.service';
 
 @Injectable()
@@ -42,7 +42,7 @@ export class MerchantMenuItemsService {
     private readonly menusRepository: MenusRepository,
     private readonly menuItemPolicyService: MenuItemPolicyService,
     private readonly auditService: AuditService,
-    private readonly notificationEventService: NotificationEventService,
+    private readonly menuItemInventoryService: MenuItemInventoryService,
   ) {}
 
   async listBranchItems(
@@ -100,7 +100,7 @@ export class MerchantMenuItemsService {
           branch.id,
           tx,
         ))?.sortOrder ?? -1) + 1;
-      const inventoryData = this.normalizeCreateInventory(payload);
+      const inventoryData = this.menuItemInventoryService.normalizeCreateInventory(payload);
       const approvedStoreTypes = await this.loadApprovedRuleStoreTypes(branch.id, tx);
       const scopedStoreTypeIds = this.resolveScopedStoreTypeIds(
         branch.id,
@@ -192,7 +192,7 @@ export class MerchantMenuItemsService {
       branchId,
       payload.categoryId,
     );
-    const inventoryData = this.normalizeUpdateInventory(payload, item);
+    const inventoryData = this.menuItemInventoryService.normalizeUpdateInventory(payload, item);
 
     const updatedItem = await this.prisma.runInTransaction(async (tx) => {
       const approvedStoreTypes = await this.loadApprovedRuleStoreTypes(branchId, tx);
@@ -217,7 +217,10 @@ export class MerchantMenuItemsService {
           payload.attributes !== undefined
             ? payload.attributes
             : this.toJsonObject(item.attributesJson),
-        isStockTracked: this.resolveNextItemStockTracking(payload, item),
+        isStockTracked: this.menuItemInventoryService.resolveNextItemStockTracking(
+          payload,
+          item,
+        ),
       });
 
       const nextItem = await this.menusRepository.updateItem(
@@ -308,69 +311,21 @@ export class MerchantMenuItemsService {
     payload: AdjustInventoryDto,
   ): Promise<MenuItemDto> {
     const item = await this.resolveOwnedItem(currentUser, branchId, itemId);
-    this.assertStockTrackingEnabled(item.isStockTracked);
-    await this.assertItemDoesNotUseLots(item.id);
-    const normalizedReasonCode = this.requireReasonCode(payload.reasonCode);
-    const normalizedNote = this.normalizeOptionalString(payload.note);
 
-    const updatedItem = await this.prisma.runInTransaction(async (tx) => {
-      const adjusted = await this.menusRepository.adjustTrackedItemStock(
-        item.id,
-        payload.delta,
-        tx,
-      );
+    return this.menuItemInventoryService.adjustBranchItemInventory(
+      currentUser,
+      item,
+      payload,
+    );
+  }
 
-      if (!adjusted) {
-        throw new AppException(
-          'The requested inventory adjustment would make the stock quantity invalid.',
-          HttpStatus.CONFLICT,
-          {
-            code: ErrorCodes.conflict,
-            details: {
-              itemId: item.id,
-              requestedDelta: payload.delta,
-              currentStockQuantity: item.stockQuantity ?? 0,
-            },
-          },
-        );
-      }
-
-      return this.menusRepository.findItemById(item.id, tx);
-    });
-
-    if (updatedItem === null) {
-      throw new AppException(
-        'Adjusted menu item could not be reloaded.',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-        {
-          code: ErrorCodes.internalServerError,
-        },
-      );
-    }
-
-    await this.auditService.logAction({
-      actorType: AuditActorType.USER,
-      actorUserId: currentUser.userId,
-      actorRole: currentUser.role,
-      actionSource: AuditActionSource.API,
-      action: 'menu_items.inventory_adjusted',
-      resourceType: AuditResourceType.MENU_ITEM,
-      resourceId: updatedItem.id,
-      resourceLabel: updatedItem.name,
-      branchId: updatedItem.branch.id,
-      metadataJson: {
-        delta: payload.delta,
-        reasonCode: normalizedReasonCode,
-        note: normalizedNote,
-        beforeStockQuantity: item.stockQuantity,
-        afterStockQuantity: updatedItem.stockQuantity,
-        lowStockThreshold: updatedItem.lowStockThreshold,
-      },
-    });
-
-    await this.publishInventoryAlertIfNeeded(item, updatedItem);
-
-    return toMenuItemDto(updatedItem);
+  async deleteBranchItem(
+    currentUser: AuthenticatedUserEntity,
+    branchId: string,
+    itemId: string,
+  ): Promise<void> {
+    const item = await this.resolveOwnedItem(currentUser, branchId, itemId);
+    await this.menusRepository.deleteItem(item.id);
   }
 
   private buildScopeSnapshot(
@@ -387,15 +342,6 @@ export class MerchantMenuItemsService {
     return storeTypeCount === 0
       ? 'ALL_APPROVED_STORE_TYPES'
       : 'SELECTED_STORE_TYPES';
-  }
-
-  async deleteBranchItem(
-    currentUser: AuthenticatedUserEntity,
-    branchId: string,
-    itemId: string,
-  ): Promise<void> {
-    const item = await this.resolveOwnedItem(currentUser, branchId, itemId);
-    await this.menusRepository.deleteItem(item.id);
   }
 
   private async resolveOwnedBranch(
@@ -508,158 +454,6 @@ export class MerchantMenuItemsService {
     }
 
     return value as Prisma.InputJsonValue;
-  }
-
-  private normalizeCreateInventory(
-    payload: CreateMenuItemDto,
-  ): Pick<
-    Prisma.MenuItemUncheckedCreateInput,
-    'isStockTracked' | 'stockQuantity' | 'lowStockThreshold'
-  > {
-    const hasInventoryFields =
-      payload.stockQuantity !== undefined ||
-      payload.lowStockThreshold !== undefined;
-    const isStockTracked = payload.isStockTracked ?? hasInventoryFields;
-
-    this.assertInventoryValue('stockQuantity', payload.stockQuantity);
-    this.assertInventoryValue('lowStockThreshold', payload.lowStockThreshold);
-
-    if (!isStockTracked) {
-      return {
-        isStockTracked: false,
-        stockQuantity: null,
-        lowStockThreshold: null,
-      };
-    }
-
-    return {
-      isStockTracked: true,
-      stockQuantity: payload.stockQuantity ?? 0,
-      lowStockThreshold: payload.lowStockThreshold ?? null,
-    };
-  }
-
-  private normalizeUpdateInventory(
-    payload: UpdateMenuItemDto,
-    item: MenuItemOwnershipRecord,
-  ): Pick<
-    Prisma.MenuItemUpdateInput,
-    'isStockTracked' | 'stockQuantity' | 'lowStockThreshold'
-  > {
-    const hasInventoryFields =
-      payload.isStockTracked !== undefined ||
-      payload.stockQuantity !== undefined ||
-      payload.lowStockThreshold !== undefined;
-
-    if (!hasInventoryFields) {
-      return {};
-    }
-
-    this.assertInventoryValue('stockQuantity', payload.stockQuantity);
-    this.assertInventoryValue('lowStockThreshold', payload.lowStockThreshold);
-
-    const isStockTracked =
-      payload.isStockTracked ??
-      (payload.stockQuantity !== undefined ||
-        payload.lowStockThreshold !== undefined ||
-        item.isStockTracked);
-
-    if (!isStockTracked) {
-      return {
-        isStockTracked: false,
-        stockQuantity: null,
-        lowStockThreshold: null,
-      };
-    }
-
-    return {
-      isStockTracked: true,
-      ...(payload.stockQuantity !== undefined
-        ? { stockQuantity: payload.stockQuantity }
-        : item.isStockTracked
-          ? {}
-          : { stockQuantity: 0 }),
-      ...(payload.lowStockThreshold !== undefined
-        ? { lowStockThreshold: payload.lowStockThreshold }
-        : {}),
-    };
-  }
-
-  private assertInventoryValue(name: string, value?: number): void {
-    if (value === undefined) {
-      return;
-    }
-
-    if (!Number.isInteger(value) || value < 0) {
-      throw new AppException(
-        `${name} must be a whole number greater than or equal to zero.`,
-        HttpStatus.BAD_REQUEST,
-        {
-          code: ErrorCodes.validationFailed,
-        },
-      );
-    }
-  }
-
-  private assertStockTrackingEnabled(isStockTracked: boolean): void {
-    if (isStockTracked) {
-      return;
-    }
-
-    throw new AppException(
-      'Inventory adjustments require stock tracking to be enabled.',
-      HttpStatus.CONFLICT,
-      {
-        code: ErrorCodes.conflict,
-      },
-    );
-  }
-
-  private async assertItemDoesNotUseLots(itemId: string): Promise<void> {
-    const lotCount =
-      await this.menusRepository.countItemInventoryLotsByMenuItemId(itemId);
-
-    if (lotCount === 0) {
-      return;
-    }
-
-    throw new AppException(
-      'Direct item-level inventory adjustments are disabled once inventory lots exist. Adjust the relevant lot instead.',
-      HttpStatus.CONFLICT,
-      {
-        code: ErrorCodes.conflict,
-        details: {
-          itemId,
-          lotCount,
-        },
-      },
-    );
-  }
-
-  private requireReasonCode(reasonCode: string): string {
-    const normalizedReasonCode = this.normalizeOptionalString(reasonCode);
-
-    if (normalizedReasonCode === null) {
-      throw new AppException(
-        'A reason code is required for inventory adjustments.',
-        HttpStatus.UNPROCESSABLE_ENTITY,
-        {
-          code: ErrorCodes.unprocessableEntity,
-        },
-      );
-    }
-
-    return normalizedReasonCode;
-  }
-
-  private normalizeOptionalString(value: string | undefined | null): string | null {
-    if (value === undefined || value === null) {
-      return null;
-    }
-
-    const normalized = value.trim();
-
-    return normalized.length === 0 ? null : normalized;
   }
 
   private async loadApprovedRuleStoreTypes(
@@ -816,18 +610,6 @@ export class MerchantMenuItemsService {
       .join(' ');
   }
 
-  private resolveNextItemStockTracking(
-    payload: UpdateMenuItemDto,
-    item: MenuItemOwnershipRecord,
-  ): boolean {
-    return (
-      payload.isStockTracked ??
-      (payload.stockQuantity !== undefined ||
-        payload.lowStockThreshold !== undefined ||
-        item.isStockTracked)
-    );
-  }
-
   private toJsonObject(
     value: Prisma.JsonValue | null,
   ): Record<string, unknown> | null {
@@ -836,61 +618,5 @@ export class MerchantMenuItemsService {
     }
 
     return value as Record<string, unknown>;
-  }
-
-  private async publishInventoryAlertIfNeeded(
-    previousItem: MenuItemOwnershipRecord,
-    nextItem: MenuItemOwnershipRecord,
-  ): Promise<void> {
-    const previousAttentionLevel = this.resolveInventoryAttentionLevel(previousItem);
-    const nextAttentionLevel = this.resolveInventoryAttentionLevel(nextItem);
-
-    if (nextAttentionLevel === null) {
-      return;
-    }
-
-    const shouldNotify =
-      previousAttentionLevel === null ||
-      (previousAttentionLevel === 'LOW_STOCK' &&
-        nextAttentionLevel === 'OUT_OF_STOCK');
-
-    if (!shouldNotify) {
-      return;
-    }
-
-    await this.notificationEventService.publishMerchantInventoryAlert({
-      merchantUserId: nextItem.branch.merchant.user.id,
-      branchId: nextItem.branch.id,
-      branchName: null,
-      resourceType: 'MENU_ITEM',
-      resourceId: nextItem.id,
-      resourceLabel: nextItem.name,
-      attentionLevel: nextAttentionLevel,
-      stockQuantity: nextItem.stockQuantity ?? null,
-      lowStockThreshold: nextItem.lowStockThreshold ?? null,
-    });
-  }
-
-  private resolveInventoryAttentionLevel(
-    item: MenuItemOwnershipRecord,
-  ): 'LOW_STOCK' | 'OUT_OF_STOCK' | null {
-    if (!item.isStockTracked) {
-      return null;
-    }
-
-    if ((item.stockQuantity ?? 0) <= 0) {
-      return 'OUT_OF_STOCK';
-    }
-
-    if (
-      item.lowStockThreshold !== null &&
-      item.lowStockThreshold !== undefined &&
-      item.stockQuantity !== null &&
-      item.stockQuantity <= item.lowStockThreshold
-    ) {
-      return 'LOW_STOCK';
-    }
-
-    return null;
   }
 }

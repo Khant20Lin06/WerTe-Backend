@@ -1,0 +1,16 @@
+import { CartAggregateEntity } from '../../../src/modules/carts/entities/cart-aggregate.entity';
+import { CheckoutPreviewEntity } from '../../../src/modules/checkout/entities/checkout-preview.entity';
+import { CheckoutSubmissionEntity } from '../../../src/modules/checkout/entities/checkout-submission.entity';
+import { AuditLogEntity } from '../../../src/modules/audit/entities/audit-log.entity';
+import { ConversationSummaryEntity } from '../../../src/modules/messaging/entities/conversation-summary.entity';
+import { SentMessageEntity } from '../../../src/modules/messaging/entities/sent-message.entity';
+import { NotificationCenterEntity } from '../../../src/modules/notifications/entities/notification-center.entity';
+import { OrderDetailEntity } from '../../../src/modules/orders/entities/order-detail.entity';
+export declare function createCartAggregateEntity(): CartAggregateEntity;
+export declare function createCheckoutPreviewEntity(): CheckoutPreviewEntity;
+export declare function createCheckoutSubmissionEntity(): CheckoutSubmissionEntity;
+export declare function createOrderDetailEntity(): OrderDetailEntity;
+export declare function createConversationSummaryEntity(): ConversationSummaryEntity;
+export declare function createSentMessageEntity(): SentMessageEntity;
+export declare function createNotificationCenterEntity(): NotificationCenterEntity;
+export declare function createAuditLogEntity(): AuditLogEntity;

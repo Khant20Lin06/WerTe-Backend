@@ -69,6 +69,7 @@ export class MerchantPromotionsService {
       discountValue: payload.discountValue,
       minimumSubtotalAmount: payload.minimumSubtotalAmount ?? 0,
       maximumDiscountAmount: payload.maximumDiscountAmount ?? null,
+      perCustomerLimit: payload.perCustomerLimit ?? null,
       startsAt: this.toOptionalDate(payload.startsAt),
       endsAt: this.toOptionalDate(payload.endsAt),
       isActive: payload.isActive ?? true,
@@ -135,6 +136,9 @@ export class MerchantPromotionsService {
         ...(payload.maximumDiscountAmount !== undefined
           ? { maximumDiscountAmount: payload.maximumDiscountAmount }
           : {}),
+        ...(payload.perCustomerLimit !== undefined
+          ? { perCustomerLimit: payload.perCustomerLimit ?? null }
+          : {}),
         ...(payload.startsAt !== undefined
           ? { startsAt: this.toOptionalDate(payload.startsAt) }
           : {}),
@@ -146,6 +150,16 @@ export class MerchantPromotionsService {
     );
 
     return toPromotionDto(buildPromotionEntity(updatedPromotion));
+  }
+
+  async deleteBranchPromotion(
+    currentUser: AuthenticatedUserEntity,
+    branchId: string,
+    promotionId: string,
+  ): Promise<void> {
+    await this.requireOwnedBranch(currentUser, branchId);
+    await this.requireBranchPromotion(branchId, promotionId);
+    await this.promotionsRepository.softDeletePromotion(promotionId);
   }
 
   private async requireOwnedBranch(
