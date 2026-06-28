@@ -4,7 +4,10 @@ x-backend-env: &backend-env
   APP_PORT: 3000
   APP_PREFIX: api/v1
   SWAGGER_ENABLED: 'true'
-  DATABASE_URL: postgresql://postgres:postgres@postgres:5432/food_delivery
+  # PgBouncer sits in front of Postgres.
+  # ?pgbouncer=true disables Prisma prepared statements (incompatible with transaction mode).
+  # connection_limit=5 per replica — PgBouncer multiplexes to Postgres, so fewer is better.
+  DATABASE_URL: postgresql://postgres:postgres@pgbouncer:6432/food_delivery?pgbouncer=true&connection_limit=5&pool_timeout=10
   DB_ENABLE_QUERY_LOGS: 'false'
   REDIS_URL: redis://redis:6379
   REDIS_KEY_PREFIX: food-delivery
@@ -51,11 +54,47 @@ services:
       retries: 5
       start_period: 5s
 
+  pgbouncer:
+    image: bitnami/pgbouncer:1.23.1
+    restart: unless-stopped
+    environment:
+      # Connect to real Postgres
+      POSTGRESQL_HOST: postgres
+      POSTGRESQL_PORT: '5432'
+      POSTGRESQL_DATABASE: food_delivery
+      POSTGRESQL_USERNAME: postgres
+      POSTGRESQL_PASSWORD: postgres
+      # Transaction mode — required for Prisma (?pgbouncer=true in DATABASE_URL)
+      PGBOUNCER_POOL_MODE: transaction
+      # 25 server connections to Postgres shared across all app clients
+      PGBOUNCER_DEFAULT_POOL_SIZE: '25'
+      PGBOUNCER_MIN_POOL_SIZE: '5'
+      # Drop idle client connections after 60s
+      PGBOUNCER_CLIENT_IDLE_TIMEOUT: '60'
+      # Drop idle server connections after 300s
+      PGBOUNCER_SERVER_IDLE_TIMEOUT: '300'
+      # Reject clients when all 25 server slots are busy (fail fast)
+      PGBOUNCER_RESERVE_POOL_SIZE: '5'
+      PGBOUNCER_RESERVE_POOL_TIMEOUT: '3'
+      PGBOUNCER_AUTH_TYPE: md5
+    ports:
+      - '6432:6432'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: [ 'CMD-SHELL', 'pg_isready -h 127.0.0.1 -p 6432 -U postgres -d food_delivery' ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
   migrate:
     build:
       context: .
       target: migrate
     environment:
+      # Migrations must bypass PgBouncer (DDL is incompatible with transaction mode)
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/food_delivery
     depends_on:
       postgres:
@@ -72,6 +111,8 @@ services:
       <<: *backend-env
     depends_on:
       postgres:
+        condition: service_healthy
+      pgbouncer:
         condition: service_healthy
       redis:
         condition: service_healthy

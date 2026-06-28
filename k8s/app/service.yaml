@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: food-delivery-app-service
+  namespace: food-delivery
+spec:
+  selector:
+    app: food-delivery-app
+  ports:
+    - name: http
+      port: 80
+      targetPort: 3000
+  type: ClusterIP

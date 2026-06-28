@@ -1,0 +1,21 @@
+# ── Ingress ───────────────────────────────────────────────────────────────────
+# Routes localhost:8080 → wertee-backend-svc:80
+# k3d cluster ရဲ့ traefik ingress controller ကိုသုံး
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: wertee-ingress
+  namespace: wertee-dev
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: wertee-backend-svc
+            port:
+              number: 80

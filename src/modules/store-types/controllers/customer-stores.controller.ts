@@ -9,6 +9,7 @@ import {
 } from '@nestjs/swagger';
 
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { Public } from '../../../common/decorators/public.decorator';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { AuthenticatedUserEntity } from '../../auth/entities/authenticated-user.entity';
 import { CustomerStoreCatalogEntryDto } from '../dto/customer-store-catalog-entry.dto';
@@ -28,6 +29,7 @@ export class CustomerStoresController {
     private readonly customerStoreDiscoveryService: CustomerStoreDiscoveryService,
   ) {}
 
+  @Public()
   @ApiOperation({
     operationId: 'getCustomerStoreFacets',
     summary: 'Return customer-visible store discovery facets for the active filters',
@@ -39,7 +41,7 @@ export class CustomerStoresController {
   })
   @Get('facets')
   facets(
-    @CurrentUser() currentUser: AuthenticatedUserEntity,
+    @CurrentUser() currentUser: AuthenticatedUserEntity | null,
     @Query() query: ListCustomerStoresQueryDto,
   ) {
     return this.customerStoreDiscoveryService.getDiscoverableStoreFacets(
@@ -48,6 +50,7 @@ export class CustomerStoresController {
     );
   }
 
+  @Public()
   @ApiOperation({
     operationId: 'listCustomerStores',
     summary: 'List customer-visible stores with multi-type discovery filters',
@@ -60,7 +63,7 @@ export class CustomerStoresController {
   })
   @Get()
   list(
-    @CurrentUser() currentUser: AuthenticatedUserEntity,
+    @CurrentUser() currentUser: AuthenticatedUserEntity | null,
     @Query() query: ListCustomerStoresQueryDto,
   ) {
     return this.customerStoreDiscoveryService.listDiscoverableStores(

@@ -20,6 +20,7 @@ import {
   buildVariantCombinationDefaultName,
   buildVariantCombinationSignature,
 } from '../utils/item-variant-combination.util';
+import { MenuCacheService } from './menu-cache.service';
 import { MenusService } from './menus.service';
 
 @Injectable()
@@ -29,6 +30,7 @@ export class MerchantMenuVariantCombinationsService {
     private readonly menusService: MenusService,
     private readonly menusRepository: MenusRepository,
     private readonly menuItemPolicyService: MenuItemPolicyService,
+    private readonly menuCache: MenuCacheService,
   ) {}
 
   async listItemVariantCombinations(
@@ -127,6 +129,8 @@ export class MerchantMenuVariantCombinationsService {
       );
     }
 
+    void this.menuCache.invalidate(branchId);
+
     return toItemVariantCombinationDto(combination);
   }
 
@@ -217,6 +221,8 @@ export class MerchantMenuVariantCombinationsService {
         },
       );
     }
+
+    void this.menuCache.invalidate(branchId);
 
     return toItemVariantCombinationDto(updated);
   }

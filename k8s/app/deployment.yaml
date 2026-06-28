@@ -1,0 +1,119 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: food-delivery-app
+  namespace: food-delivery
+  labels:
+    app: food-delivery-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: food-delivery-app
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0      # zero-downtime: always keep all replicas up during update
+  template:
+    metadata:
+      labels:
+        app: food-delivery-app
+    spec:
+      # Graceful shutdown — give in-flight requests time to finish
+      terminationGracePeriodSeconds: 30
+
+      initContainers:
+        # Wait for pgbouncer and redis before starting the app.
+        # App connects to pgbouncer:6432, not postgres:5432 directly.
+        - name: wait-for-deps
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z pgbouncer-service 6432; do echo "waiting for pgbouncer..."; sleep 2; done
+              until nc -z redis-service 6379;      do echo "waiting for redis...";     sleep 2; done
+
+      containers:
+        - name: app
+          image: YOUR_REGISTRY/food-delivery-backend:latest  # replace with your image
+          ports:
+            - containerPort: 3000
+
+          # ── Environment: non-secret from ConfigMap ────────────────────
+          envFrom:
+            - configMapRef:
+                name: food-delivery-config
+
+          # ── Environment: secrets ──────────────────────────────────────
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: food-delivery-secret
+                  key: DATABASE_URL
+            - name: JWT_ACCESS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: food-delivery-secret
+                  key: JWT_ACCESS_SECRET
+            - name: JWT_REFRESH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: food-delivery-secret
+                  key: JWT_REFRESH_SECRET
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: food-delivery-secret
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: food-delivery-secret
+                  key: AWS_SECRET_ACCESS_KEY
+            - name: FCM_SERVICE_ACCOUNT_JSON
+              valueFrom:
+                secretKeyRef:
+                  name: food-delivery-secret
+                  key: FCM_SERVICE_ACCOUNT_JSON
+
+          # ── Resources ─────────────────────────────────────────────────
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+
+          # ── Health checks ─────────────────────────────────────────────
+          # startupProbe runs first — app has up to 60s to boot (Prisma connect + migrations)
+          startupProbe:
+            httpGet:
+              path: /api/v1/health/live
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 12    # 12 × 5s = 60s max startup time
+
+          # readinessProbe — only send traffic when DB + Redis are reachable
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health/ready
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # livenessProbe — restart if the process hangs
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health/live
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3

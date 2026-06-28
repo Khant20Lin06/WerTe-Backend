@@ -1,0 +1,83 @@
+# ── Backend Deployment ────────────────────────────────────────────────────────
+# Dockerfile ရှိ runner stage ကို သုံး
+# Health: /api/v1/health/live (Dockerfile HEALTHCHECK မှာ မြင်ရ)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wertee-backend
+  namespace: wertee-dev
+  labels:
+    app: wertee-backend
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: wertee-backend
+  template:
+    metadata:
+      labels:
+        app: wertee-backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: backend
+        image: wertee-backend:local
+        imagePullPolicy: Never      # local k3d image သုံး
+        ports:
+        - name: http
+          containerPort: 3000
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        # docker-compose.yml ရဲ့ health endpoint အတိုင်း
+        livenessProbe:
+          httpGet:
+            path: /api/v1/health/live
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/v1/health/live
+            port: 3000
+          initialDelaySeconds: 15
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        # Non-sensitive config
+        envFrom:
+        - configMapRef:
+            name: wertee-config
+        - secretRef:
+            name: wertee-secrets
+
+---
+# ── Backend Service ───────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: wertee-backend-svc
+  namespace: wertee-dev
+  labels:
+    app: wertee-backend
+spec:
+  selector:
+    app: wertee-backend
+  ports:
+  - name: http
+    port: 80
+    targetPort: 3000

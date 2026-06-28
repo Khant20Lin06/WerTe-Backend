@@ -21,6 +21,7 @@ import { UpdateItemInventoryLotDto } from '../dto/update-item-inventory-lot.dto'
 import { MenuItemInventoryLotRecord } from '../entities/menu-item-inventory-lot.entity';
 import { MenuItemOwnershipRecord } from '../entities/menu-item-ownership.entity';
 import { MenusRepository } from '../repositories/menus.repository';
+import { MenuCacheService } from './menu-cache.service';
 import { MenusService } from './menus.service';
 
 @Injectable()
@@ -31,6 +32,7 @@ export class MerchantMenuItemInventoryLotsService {
     private readonly menusRepository: MenusRepository,
     private readonly auditService: AuditService,
     private readonly notificationEventService: NotificationEventService,
+    private readonly menuCache: MenuCacheService,
   ) {}
 
   async listItemInventoryLots(
@@ -132,6 +134,8 @@ export class MerchantMenuItemInventoryLotsService {
       },
     });
 
+    void this.menuCache.invalidate(branchId);
+
     return toItemInventoryLotDto(createdLot);
   }
 
@@ -207,6 +211,8 @@ export class MerchantMenuItemInventoryLotsService {
         note: updatedLot.note ?? null,
       },
     });
+
+    void this.menuCache.invalidate(branchId);
 
     return toItemInventoryLotDto(updatedLot);
   }
@@ -314,6 +320,8 @@ export class MerchantMenuItemInventoryLotsService {
     });
 
     await this.publishInventoryAlertIfNeeded(item, updatedItem);
+
+    void this.menuCache.invalidate(branchId);
 
     return toItemInventoryLotDto(updatedLot);
   }

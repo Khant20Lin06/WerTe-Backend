@@ -30,6 +30,7 @@ import {
   buildMenuVerticalCatalogRuleProfiles,
   MenuVerticalStoreTypeSummary,
 } from '../utils/menu-vertical-catalog-rule.util';
+import { MenuCacheService } from './menu-cache.service';
 import { MenuItemInventoryService } from './menu-item-inventory.service';
 import { MenusService } from './menus.service';
 
@@ -43,6 +44,7 @@ export class MerchantMenuItemsService {
     private readonly menuItemPolicyService: MenuItemPolicyService,
     private readonly auditService: AuditService,
     private readonly menuItemInventoryService: MenuItemInventoryService,
+    private readonly menuCache: MenuCacheService,
   ) {}
 
   async listBranchItems(
@@ -177,6 +179,8 @@ export class MerchantMenuItemsService {
       },
     });
 
+    void this.menuCache.invalidate(branch.id);
+
     return toMenuItemDto(item);
   }
 
@@ -301,6 +305,8 @@ export class MerchantMenuItemsService {
       });
     }
 
+    void this.menuCache.invalidate(branchId);
+
     return toMenuItemDto(updatedItem);
   }
 
@@ -312,11 +318,15 @@ export class MerchantMenuItemsService {
   ): Promise<MenuItemDto> {
     const item = await this.resolveOwnedItem(currentUser, branchId, itemId);
 
-    return this.menuItemInventoryService.adjustBranchItemInventory(
+    const result = await this.menuItemInventoryService.adjustBranchItemInventory(
       currentUser,
       item,
       payload,
     );
+
+    void this.menuCache.invalidate(branchId);
+
+    return result;
   }
 
   async deleteBranchItem(
@@ -326,6 +336,7 @@ export class MerchantMenuItemsService {
   ): Promise<void> {
     const item = await this.resolveOwnedItem(currentUser, branchId, itemId);
     await this.menusRepository.deleteItem(item.id);
+    void this.menuCache.invalidate(branchId);
   }
 
   private buildScopeSnapshot(

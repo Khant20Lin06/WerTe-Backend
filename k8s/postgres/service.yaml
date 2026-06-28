@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+  namespace: food-delivery
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+  # ClusterIP — internal only, not exposed outside the cluster
+  type: ClusterIP

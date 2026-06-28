@@ -20,6 +20,7 @@ import { ItemOptionGroupOwnershipRecord } from '../entities/item-option-group-ow
 import { ItemOptionOwnershipRecord } from '../entities/item-option-ownership.entity';
 import { MenuOptionPolicyService } from '../policies/menu-option-policy.service';
 import { MenusRepository } from '../repositories/menus.repository';
+import { MenuCacheService } from './menu-cache.service';
 import { MenusService } from './menus.service';
 
 @Injectable()
@@ -31,6 +32,7 @@ export class MerchantMenuOptionsService {
     private readonly menuOptionPolicyService: MenuOptionPolicyService,
     private readonly auditService: AuditService,
     private readonly notificationEventService: NotificationEventService,
+    private readonly menuCache: MenuCacheService,
   ) {}
 
   async listGroupOptions(
@@ -103,6 +105,8 @@ export class MerchantMenuOptionsService {
       );
     });
 
+    void this.menuCache.invalidate(branchId);
+
     return toItemOptionDto(option);
   }
 
@@ -135,6 +139,8 @@ export class MerchantMenuOptionsService {
         ? { isActive: payload.isActive }
         : {}),
     });
+
+    void this.menuCache.invalidate(branchId);
 
     return toItemOptionDto(updatedOption);
   }
@@ -214,6 +220,8 @@ export class MerchantMenuOptionsService {
     });
 
     await this.publishInventoryAlertIfNeeded(option, updatedOption);
+
+    void this.menuCache.invalidate(branchId);
 
     return toItemOptionDto(updatedOption);
   }
@@ -308,6 +316,7 @@ export class MerchantMenuOptionsService {
       optionId,
     );
     await this.menusRepository.deleteOption(option.id);
+    void this.menuCache.invalidate(branchId);
   }
 
   private async resolveOwnedOptionGroup(

@@ -43,10 +43,9 @@ export class CustomerStoreDiscoveryService {
   ) {}
 
   async listDiscoverableStores(
-    currentUser: AuthenticatedUserEntity,
+    currentUser: AuthenticatedUserEntity | null,
     query: ListCustomerStoresQueryDto,
   ): Promise<CustomerStoreSummaryDto[]> {
-    this.assertCanDiscoverStores(currentUser);
 
     const { branches, selectedStoreTypeCodes } =
       await this.findDiscoverableBranches(query);
@@ -61,10 +60,9 @@ export class CustomerStoreDiscoveryService {
   }
 
   async getDiscoverableStoreFacets(
-    currentUser: AuthenticatedUserEntity,
+    currentUser: AuthenticatedUserEntity | null,
     query: ListCustomerStoresQueryDto,
   ): Promise<CustomerStoreFacetsDto> {
-    this.assertCanDiscoverStores(currentUser);
 
     const { branches } = await this.findDiscoverableBranches(query);
 

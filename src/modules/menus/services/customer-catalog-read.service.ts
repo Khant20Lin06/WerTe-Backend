@@ -4,11 +4,15 @@ import { BranchStatus, MerchantStatus } from '@prisma/client';
 import { ErrorCodes } from '../../../common/constants/error-codes';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { BranchCatalogEntity } from '../entities/branch-catalog.entity';
+import { MenuCacheService } from './menu-cache.service';
 import { MenusService } from './menus.service';
 
 @Injectable()
 export class CustomerCatalogReadService {
-  constructor(private readonly menusService: MenusService) {}
+  constructor(
+    private readonly menusService: MenusService,
+    private readonly menuCache: MenuCacheService,
+  ) {}
 
   async getVisibleBranchCatalog(
     branchId: string,
@@ -16,7 +20,13 @@ export class CustomerCatalogReadService {
       storeTypeCode?: string;
     },
   ): Promise<BranchCatalogEntity | null> {
-    const branchCatalog = await this.menusService.findBranchCatalogByBranchId(branchId);
+    let branchCatalog = await this.menuCache.getCatalog(branchId);
+    if (branchCatalog === null) {
+      branchCatalog = await this.menusService.findBranchCatalogByBranchId(branchId);
+      if (branchCatalog !== null) {
+        void this.menuCache.setCatalog(branchId, branchCatalog);
+      }
+    }
     if (branchCatalog === null) {
       return null;
     }

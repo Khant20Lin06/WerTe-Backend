@@ -15,6 +15,7 @@ import { ItemOptionGroupOwnershipRecord } from '../entities/item-option-group-ow
 import { MenuItemOwnershipRecord } from '../entities/menu-item-ownership.entity';
 import { MenuOptionGroupPolicyService } from '../policies/menu-option-group-policy.service';
 import { MenusRepository } from '../repositories/menus.repository';
+import { MenuCacheService } from './menu-cache.service';
 import { MenusService } from './menus.service';
 
 @Injectable()
@@ -24,6 +25,7 @@ export class MerchantMenuOptionGroupsService {
     private readonly menusService: MenusService,
     private readonly menusRepository: MenusRepository,
     private readonly menuOptionGroupPolicyService: MenuOptionGroupPolicyService,
+    private readonly menuCache: MenuCacheService,
   ) {}
 
   async listItemOptionGroups(
@@ -89,6 +91,8 @@ export class MerchantMenuOptionGroupsService {
       );
     });
 
+    void this.menuCache.invalidate(branchId);
+
     return toItemOptionGroupDto(optionGroup);
   }
 
@@ -134,6 +138,8 @@ export class MerchantMenuOptionGroupsService {
       },
     );
 
+    void this.menuCache.invalidate(branchId);
+
     return toItemOptionGroupDto(updatedGroup);
   }
 
@@ -150,6 +156,7 @@ export class MerchantMenuOptionGroupsService {
       optionGroupId,
     );
     await this.menusRepository.deleteOptionGroup(optionGroup.id);
+    void this.menuCache.invalidate(branchId);
   }
 
   private async resolveOwnedItem(

@@ -18,6 +18,7 @@ import { MenuOptionGroupPolicyService } from './policies/menu-option-group-polic
 import { MenuOptionPolicyService } from './policies/menu-option-policy.service';
 import { MenusRepository } from './repositories/menus.repository';
 import { CustomerCatalogReadService } from './services/customer-catalog-read.service';
+import { MenuCacheService } from './services/menu-cache.service';
 import { MerchantCatalogReadService } from './services/merchant-catalog-read.service';
 import { MerchantInventoryReadService } from './services/merchant-inventory-read.service';
 import { MerchantMenuCategoriesService } from './services/merchant-menu-categories.service';
@@ -46,6 +47,7 @@ import { MenusService } from './services/menus.service';
   providers: [
     MenusRepository,
     MenusService,
+    MenuCacheService,
     MerchantCatalogReadService,
     MerchantInventoryReadService,
     CustomerCatalogReadService,
@@ -64,6 +66,7 @@ import { MenusService } from './services/menus.service';
   ],
   exports: [
     MenusService,
+    MenuCacheService,
     MenuInventoryLifecycleService,
     MerchantCatalogReadService,
     MerchantInventoryReadService,

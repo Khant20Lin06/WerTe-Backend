@@ -1,0 +1,43 @@
+# ── ConfigMap (non-sensitive env vars) ───────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wertee-config
+  namespace: wertee-dev
+data:
+  NODE_ENV: development
+  APP_HOST: "0.0.0.0"
+  APP_PORT: "3000"
+  APP_PREFIX: api/v1
+  SWAGGER_ENABLED: "true"
+  DB_ENABLE_QUERY_LOGS: "false"
+  # 5 Prisma connections per replica — PgBouncer multiplexes to Postgres
+  DATABASE_CONNECTION_LIMIT: "5"
+  DATABASE_POOL_TIMEOUT_SECONDS: "10"
+  REDIS_KEY_PREFIX: food-delivery
+  JWT_ACCESS_EXPIRES_IN: 15m
+  JWT_REFRESH_EXPIRES_IN: 30d
+  JWT_ISSUER: food-delivery-backend
+  JWT_AUDIENCE: food-delivery-platform
+  S3_BUCKET: food-delivery-assets
+  S3_REGION: ap-southeast-1
+  FCM_PROJECT_ID: sample-project
+
+---
+# ── Secret (sensitive values — dev only plain text OK) ────────────────────────
+# Production မှာ External Secrets Operator သုံးပါ
+apiVersion: v1
+kind: Secret
+metadata:
+  name: wertee-secrets
+  namespace: wertee-dev
+type: Opaque
+stringData:
+  # App runtime — through PgBouncer (transaction mode).
+  # ?pgbouncer=true disables Prisma prepared statements (required for transaction mode).
+  DATABASE_URL: "postgresql://postgres:postgres@pgbouncer:6432/food_delivery?pgbouncer=true"
+  # Migrate job — direct to Postgres (DDL is incompatible with PgBouncer transaction mode)
+  DATABASE_DIRECT_URL: "postgresql://postgres:postgres@postgres:5432/food_delivery"
+  REDIS_URL: "redis://redis:6379"
+  JWT_ACCESS_SECRET: "local-dev-access-secret-min-32-chars-xx"
+  JWT_REFRESH_SECRET: "local-dev-refresh-secret-min-32-chars-x"

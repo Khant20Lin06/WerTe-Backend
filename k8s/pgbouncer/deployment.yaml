@@ -1,0 +1,93 @@
+# ── PgBouncer Deployment ──────────────────────────────────────────────────────
+# Transaction-mode connection pooler between the NestJS app and Postgres.
+#
+# Key constraints:
+#   - Prisma DATABASE_URL must include ?pgbouncer=true (disables prepared statements)
+#   - Migrations must connect directly to Postgres (DDL + session-scoped state
+#     are incompatible with PgBouncer transaction mode)
+#   - pool_size=25: total server connections to Postgres shared across all clients
+#   - App replicas use connection_limit=5 each (multiplexed through PgBouncer)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgbouncer
+  namespace: food-delivery
+  labels:
+    app: pgbouncer
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: pgbouncer
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: pgbouncer
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+      - name: pgbouncer
+        image: bitnami/pgbouncer:1.23.1
+        ports:
+        - containerPort: 6432
+        env:
+        - name: POSTGRESQL_HOST
+          value: "postgres-service"
+        - name: POSTGRESQL_PORT
+          value: "5432"
+        - name: POSTGRESQL_DATABASE
+          value: food_delivery
+        - name: POSTGRESQL_USERNAME
+          value: postgres
+        - name: POSTGRESQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: food-delivery-secret
+              key: POSTGRES_PASSWORD
+        - name: PGBOUNCER_POOL_MODE
+          value: transaction
+        # 25 server connections to Postgres total (shared across all app replicas)
+        - name: PGBOUNCER_DEFAULT_POOL_SIZE
+          value: "25"
+        - name: PGBOUNCER_MIN_POOL_SIZE
+          value: "5"
+        # Reserve slots for burst traffic
+        - name: PGBOUNCER_RESERVE_POOL_SIZE
+          value: "5"
+        - name: PGBOUNCER_RESERVE_POOL_TIMEOUT
+          value: "3"
+        # Recycle idle client connections
+        - name: PGBOUNCER_CLIENT_IDLE_TIMEOUT
+          value: "60"
+        # Recycle idle server connections
+        - name: PGBOUNCER_SERVER_IDLE_TIMEOUT
+          value: "300"
+        - name: PGBOUNCER_AUTH_TYPE
+          value: md5
+        # Allow up to 500 simultaneous client connections
+        - name: PGBOUNCER_MAX_CLIENT_CONN
+          value: "500"
+        resources:
+          requests:
+            cpu: 50m
+            memory: 32Mi
+          limits:
+            cpu: 500m
+            memory: 128Mi
+        livenessProbe:
+          tcpSocket:
+            port: 6432
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          tcpSocket:
+            port: 6432
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 3

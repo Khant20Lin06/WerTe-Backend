@@ -1,0 +1,53 @@
+# ── Prisma Migrate Job ────────────────────────────────────────────────────────
+# docker-compose.yml ရှိ migrate service နဲ့ တူညီ
+# Backend deploy မလုပ်ခင် DB schema ကို run ရမယ်
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: prisma-migrate
+  namespace: wertee-dev
+  labels:
+    app: prisma-migrate
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 300  # 5 min timeout
+  template:
+    metadata:
+      labels:
+        app: prisma-migrate
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+      # Postgres ready ဖြစ်မှ migrate run မယ်
+      - name: wait-for-postgres
+        image: busybox:1.36
+        command:
+        - sh
+        - -c
+        - |
+          until nc -z postgres 5432; do
+            echo "Waiting for postgres...";
+            sleep 2;
+          done;
+          echo "Postgres is ready!"
+      securityContext:
+        runAsUser: 0
+      containers:
+      - name: migrate
+        image: wertee-backend:local
+        imagePullPolicy: Never
+        command: ["npx", "prisma", "migrate", "deploy"]
+        env:
+        # Migrations bypass PgBouncer — DDL requires session mode, not transaction mode
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: wertee-secrets
+              key: DATABASE_DIRECT_URL
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 300m
+            memory: 256Mi

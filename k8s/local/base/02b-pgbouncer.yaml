@@ -1,0 +1,87 @@
+# ── PgBouncer Deployment ──────────────────────────────────────────────────────
+# Transaction-mode pool between the app and Postgres.
+# Prisma DATABASE_URL must include ?pgbouncer=true (disables prepared statements).
+# Migrations bypass PgBouncer and connect directly to postgres:5432.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgbouncer
+  namespace: wertee-dev
+  labels:
+    app: pgbouncer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pgbouncer
+  template:
+    metadata:
+      labels:
+        app: pgbouncer
+    spec:
+      containers:
+      - name: pgbouncer
+        image: bitnami/pgbouncer:1.23.1
+        ports:
+        - containerPort: 6432
+        env:
+        - name: POSTGRESQL_HOST
+          value: "postgres"
+        - name: POSTGRESQL_PORT
+          value: "5432"
+        - name: POSTGRESQL_DATABASE
+          value: food_delivery
+        - name: POSTGRESQL_USERNAME
+          value: postgres
+        - name: POSTGRESQL_PASSWORD
+          value: postgres
+        - name: PGBOUNCER_POOL_MODE
+          value: transaction
+        - name: PGBOUNCER_DEFAULT_POOL_SIZE
+          value: "25"
+        - name: PGBOUNCER_MIN_POOL_SIZE
+          value: "5"
+        - name: PGBOUNCER_RESERVE_POOL_SIZE
+          value: "5"
+        - name: PGBOUNCER_RESERVE_POOL_TIMEOUT
+          value: "3"
+        - name: PGBOUNCER_CLIENT_IDLE_TIMEOUT
+          value: "60"
+        - name: PGBOUNCER_SERVER_IDLE_TIMEOUT
+          value: "300"
+        - name: PGBOUNCER_AUTH_TYPE
+          value: md5
+        resources:
+          requests:
+            cpu: 50m
+            memory: 32Mi
+          limits:
+            cpu: 200m
+            memory: 64Mi
+        livenessProbe:
+          tcpSocket:
+            port: 6432
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 6432
+          initialDelaySeconds: 5
+          periodSeconds: 5
+
+---
+# ── PgBouncer Service ─────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgbouncer
+  namespace: wertee-dev
+  labels:
+    app: pgbouncer
+spec:
+  selector:
+    app: pgbouncer
+  ports:
+  - name: pgbouncer
+    port: 6432
+    targetPort: 6432

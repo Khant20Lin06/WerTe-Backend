@@ -19,6 +19,7 @@ import { UpdateMenuCategoryDto } from '../dto/update-menu-category.dto';
 import { MenuCategoryOwnershipRecord } from '../entities/menu-category-ownership.entity';
 import { MenuCategoryPolicyService } from '../policies/menu-category-policy.service';
 import { MenusRepository } from '../repositories/menus.repository';
+import { MenuCacheService } from './menu-cache.service';
 import { MenusService } from './menus.service';
 
 @Injectable()
@@ -30,6 +31,7 @@ export class MerchantMenuCategoriesService {
     private readonly menusRepository: MenusRepository,
     private readonly menuCategoryPolicyService: MenuCategoryPolicyService,
     private readonly auditService: AuditService,
+    private readonly menuCache: MenuCacheService,
   ) {}
 
   async listBranchCategories(
@@ -123,6 +125,8 @@ export class MerchantMenuCategoriesService {
       },
     });
 
+    void this.menuCache.invalidate(branch.id);
+
     return toMenuCategoryDto(category);
   }
 
@@ -203,6 +207,8 @@ export class MerchantMenuCategoriesService {
       });
     }
 
+    void this.menuCache.invalidate(branchId);
+
     return toMenuCategoryDto(updatedCategory);
   }
 
@@ -217,6 +223,7 @@ export class MerchantMenuCategoriesService {
       categoryId,
     );
     await this.menusRepository.deleteCategory(category.id);
+    void this.menuCache.invalidate(branchId);
   }
 
   private buildScopeSnapshot(
