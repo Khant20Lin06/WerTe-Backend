@@ -7,6 +7,7 @@ import { MenuCategoryDto } from '../dto/menu-category.dto';
 import { UpdateMenuCategoryDto } from '../dto/update-menu-category.dto';
 import { MenuCategoryPolicyService } from '../policies/menu-category-policy.service';
 import { MenusRepository } from '../repositories/menus.repository';
+import { MenuCacheService } from './menu-cache.service';
 import { MenusService } from './menus.service';
 export declare class MerchantMenuCategoriesService {
     private readonly prisma;
@@ -15,7 +16,8 @@ export declare class MerchantMenuCategoriesService {
     private readonly menusRepository;
     private readonly menuCategoryPolicyService;
     private readonly auditService;
-    constructor(prisma: PrismaService, branchesService: BranchesService, menusService: MenusService, menusRepository: MenusRepository, menuCategoryPolicyService: MenuCategoryPolicyService, auditService: AuditService);
+    private readonly menuCache;
+    constructor(prisma: PrismaService, branchesService: BranchesService, menusService: MenusService, menusRepository: MenusRepository, menuCategoryPolicyService: MenuCategoryPolicyService, auditService: AuditService, menuCache: MenuCacheService);
     listBranchCategories(currentUser: AuthenticatedUserEntity, branchId: string): Promise<MenuCategoryDto[]>;
     getBranchCategory(currentUser: AuthenticatedUserEntity, branchId: string, categoryId: string): Promise<MenuCategoryDto>;
     createBranchCategory(currentUser: AuthenticatedUserEntity, branchId: string, payload: CreateMenuCategoryDto): Promise<MenuCategoryDto>;

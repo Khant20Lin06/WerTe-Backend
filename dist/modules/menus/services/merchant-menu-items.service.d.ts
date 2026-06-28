@@ -9,6 +9,7 @@ import { MenuItemRuleProfileDto } from '../dto/menu-item-rule-profile.dto';
 import { UpdateMenuItemDto } from '../dto/update-menu-item.dto';
 import { MenuItemPolicyService } from '../policies/menu-item-policy.service';
 import { MenusRepository } from '../repositories/menus.repository';
+import { MenuCacheService } from './menu-cache.service';
 import { MenuItemInventoryService } from './menu-item-inventory.service';
 import { MenusService } from './menus.service';
 export declare class MerchantMenuItemsService {
@@ -19,7 +20,8 @@ export declare class MerchantMenuItemsService {
     private readonly menuItemPolicyService;
     private readonly auditService;
     private readonly menuItemInventoryService;
-    constructor(prisma: PrismaService, branchesService: BranchesService, menusService: MenusService, menusRepository: MenusRepository, menuItemPolicyService: MenuItemPolicyService, auditService: AuditService, menuItemInventoryService: MenuItemInventoryService);
+    private readonly menuCache;
+    constructor(prisma: PrismaService, branchesService: BranchesService, menusService: MenusService, menusRepository: MenusRepository, menuItemPolicyService: MenuItemPolicyService, auditService: AuditService, menuItemInventoryService: MenuItemInventoryService, menuCache: MenuCacheService);
     listBranchItems(currentUser: AuthenticatedUserEntity, branchId: string): Promise<MenuItemDto[]>;
     getBranchItem(currentUser: AuthenticatedUserEntity, branchId: string, itemId: string): Promise<MenuItemDto>;
     listBranchItemRuleProfiles(currentUser: AuthenticatedUserEntity, branchId: string): Promise<MenuItemRuleProfileDto[]>;

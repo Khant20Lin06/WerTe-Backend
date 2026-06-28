@@ -18,6 +18,7 @@ import { MenuCategoryOwnershipRecord } from '../../../../src/modules/menus/entit
 import { MenuItemOwnershipRecord } from '../../../../src/modules/menus/entities/menu-item-ownership.entity';
 import { MenuItemPolicyService } from '../../../../src/modules/menus/policies/menu-item-policy.service';
 import { MenusRepository } from '../../../../src/modules/menus/repositories/menus.repository';
+import { MenuCacheService } from '../../../../src/modules/menus/services/menu-cache.service';
 import { MenuItemInventoryService } from '../../../../src/modules/menus/services/menu-item-inventory.service';
 import { MerchantMenuItemsService } from '../../../../src/modules/menus/services/merchant-menu-items.service';
 import { MenusService } from '../../../../src/modules/menus/services/menus.service';
@@ -191,6 +192,13 @@ describe('MerchantMenuItemsService', () => {
       adjustBranchItemInventory: jest.fn().mockResolvedValue(undefined),
     }) as unknown as jest.Mocked<MenuItemInventoryService>;
 
+  const makeMenuCache = () =>
+    ({
+      getCatalog: jest.fn().mockResolvedValue(null),
+      setCatalog: jest.fn().mockResolvedValue(undefined),
+      invalidate: jest.fn().mockResolvedValue(undefined),
+    }) as unknown as MenuCacheService;
+
   it('lists items for a merchant-owned branch', async () => {
     const service = new MerchantMenuItemsService(
       prismaService,
@@ -204,6 +212,7 @@ describe('MerchantMenuItemsService', () => {
       new MenuItemPolicyService(),
       makeAuditService(),
       makeInventoryService(),
+      makeMenuCache(),
     );
 
     await expect(service.listBranchItems(currentUser, 'branch_1')).resolves.toEqual([
@@ -331,6 +340,7 @@ describe('MerchantMenuItemsService', () => {
       new MenuItemPolicyService(),
       auditService,
       inventoryService,
+      makeMenuCache(),
     );
 
     const result = await service.createBranchItem(currentUser, 'branch_1', {
@@ -432,6 +442,7 @@ describe('MerchantMenuItemsService', () => {
       new MenuItemPolicyService(),
       makeAuditService(),
       makeInventoryService(),
+      makeMenuCache(),
     );
 
     await expect(
@@ -489,6 +500,7 @@ describe('MerchantMenuItemsService', () => {
       new MenuItemPolicyService(),
       makeAuditService(),
       inventoryService,
+      makeMenuCache(),
     );
 
     await expect(
@@ -524,6 +536,7 @@ describe('MerchantMenuItemsService', () => {
       new MenuItemPolicyService(),
       makeAuditService(),
       makeInventoryService(),
+      makeMenuCache(),
     );
 
     await expect(
@@ -568,6 +581,7 @@ describe('MerchantMenuItemsService', () => {
       new MenuItemPolicyService(),
       makeAuditService(),
       makeInventoryService(),
+      makeMenuCache(),
     );
 
     await expect(
@@ -617,6 +631,7 @@ describe('MerchantMenuItemsService', () => {
       new MenuItemPolicyService(),
       makeAuditService(),
       makeInventoryService(),
+      makeMenuCache(),
     );
 
     await expect(
@@ -659,6 +674,7 @@ describe('MerchantMenuItemsService', () => {
       new MenuItemPolicyService(),
       makeAuditService(),
       makeInventoryService(),
+      makeMenuCache(),
     );
 
     const result = await service.updateBranchItem(currentUser, 'branch_1', 'item_1', {
@@ -715,6 +731,7 @@ describe('MerchantMenuItemsService', () => {
       new MenuItemPolicyService(),
       makeAuditService(),
       inventoryService,
+      makeMenuCache(),
     );
 
     const result = await service.updateBranchItem(currentUser, 'branch_1', 'item_1', {
@@ -777,6 +794,7 @@ describe('MerchantMenuItemsService', () => {
       new MenuItemPolicyService(),
       makeAuditService(),
       makeInventoryService(),
+      makeMenuCache(),
     );
 
     await expect(
@@ -851,6 +869,7 @@ describe('MerchantMenuItemsService', () => {
       new MenuItemPolicyService(),
       auditService,
       makeInventoryService(),
+      makeMenuCache(),
     );
 
     await service.updateBranchItem(currentUser, 'branch_1', 'item_1', {
@@ -888,6 +907,7 @@ describe('MerchantMenuItemsService', () => {
       new MenuItemPolicyService(),
       makeAuditService(),
       inventoryService,
+      makeMenuCache(),
     );
 
     const payload = {

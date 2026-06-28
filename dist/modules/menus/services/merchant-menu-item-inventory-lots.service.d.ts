@@ -7,6 +7,7 @@ import { CreateItemInventoryLotDto } from '../dto/create-item-inventory-lot.dto'
 import { ItemInventoryLotDto } from '../dto/item-inventory-lot.dto';
 import { UpdateItemInventoryLotDto } from '../dto/update-item-inventory-lot.dto';
 import { MenusRepository } from '../repositories/menus.repository';
+import { MenuCacheService } from './menu-cache.service';
 import { MenusService } from './menus.service';
 export declare class MerchantMenuItemInventoryLotsService {
     private readonly prisma;
@@ -14,7 +15,8 @@ export declare class MerchantMenuItemInventoryLotsService {
     private readonly menusRepository;
     private readonly auditService;
     private readonly notificationEventService;
-    constructor(prisma: PrismaService, menusService: MenusService, menusRepository: MenusRepository, auditService: AuditService, notificationEventService: NotificationEventService);
+    private readonly menuCache;
+    constructor(prisma: PrismaService, menusService: MenusService, menusRepository: MenusRepository, auditService: AuditService, notificationEventService: NotificationEventService, menuCache: MenuCacheService);
     listItemInventoryLots(currentUser: AuthenticatedUserEntity, branchId: string, itemId: string): Promise<ItemInventoryLotDto[]>;
     createItemInventoryLot(currentUser: AuthenticatedUserEntity, branchId: string, itemId: string, payload: CreateItemInventoryLotDto): Promise<ItemInventoryLotDto>;
     updateItemInventoryLot(currentUser: AuthenticatedUserEntity, branchId: string, itemId: string, lotId: string, payload: UpdateItemInventoryLotDto): Promise<ItemInventoryLotDto>;

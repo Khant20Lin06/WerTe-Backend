@@ -13,6 +13,7 @@ import { PrismaService } from '../../../../src/infrastructure/database/prisma.se
 import { AuditService } from '../../../../src/modules/audit/services/audit.service';
 import { makeAuthenticatedUser } from '../../helpers/authenticated-user.factory';
 import { MenusRepository } from '../../../../src/modules/menus/repositories/menus.repository';
+import { MenuCacheService } from '../../../../src/modules/menus/services/menu-cache.service';
 import { MerchantMenuItemInventoryLotsService } from '../../../../src/modules/menus/services/merchant-menu-item-inventory-lots.service';
 import { MenusService } from '../../../../src/modules/menus/services/menus.service';
 import { NotificationEventService } from '../../../../src/modules/notifications/services/notification-event.service';
@@ -85,6 +86,13 @@ describe('MerchantMenuItemInventoryLotsService', () => {
       publishMerchantInventoryAlert: jest.fn().mockResolvedValue(undefined),
     } as unknown as jest.Mocked<NotificationEventService>);
 
+  const makeMenuCache = () =>
+    ({
+      getCatalog: jest.fn().mockResolvedValue(null),
+      setCatalog: jest.fn().mockResolvedValue(undefined),
+      invalidate: jest.fn().mockResolvedValue(undefined),
+    }) as unknown as MenuCacheService;
+
   it('creates a new inventory lot and increments aggregate item stock', async () => {
     const menusRepository = {
       countItemInventoryLotsByMenuItemId: jest.fn().mockResolvedValue(0),
@@ -101,6 +109,7 @@ describe('MerchantMenuItemInventoryLotsService', () => {
       menusRepository,
       auditService,
       makeNotificationEventService(),
+      makeMenuCache(),
     );
 
     const result = await service.createItemInventoryLot(
@@ -162,6 +171,7 @@ describe('MerchantMenuItemInventoryLotsService', () => {
       } as unknown as MenusRepository,
       makeAuditService(),
       makeNotificationEventService(),
+      makeMenuCache(),
     );
 
     await expect(
@@ -209,6 +219,7 @@ describe('MerchantMenuItemInventoryLotsService', () => {
       menusRepository,
       makeAuditService(),
       notificationEventService,
+      makeMenuCache(),
     );
 
     const result = await service.adjustItemInventoryLot(

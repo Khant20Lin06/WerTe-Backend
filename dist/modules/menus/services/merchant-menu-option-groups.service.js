@@ -18,13 +18,15 @@ const prisma_service_1 = require("../../../infrastructure/database/prisma.servic
 const item_option_group_dto_1 = require("../dto/item-option-group.dto");
 const menu_option_group_policy_service_1 = require("../policies/menu-option-group-policy.service");
 const menus_repository_1 = require("../repositories/menus.repository");
+const menu_cache_service_1 = require("./menu-cache.service");
 const menus_service_1 = require("./menus.service");
 let MerchantMenuOptionGroupsService = class MerchantMenuOptionGroupsService {
-    constructor(prisma, menusService, menusRepository, menuOptionGroupPolicyService) {
+    constructor(prisma, menusService, menusRepository, menuOptionGroupPolicyService, menuCache) {
         this.prisma = prisma;
         this.menusService = menusService;
         this.menusRepository = menusRepository;
         this.menuOptionGroupPolicyService = menuOptionGroupPolicyService;
+        this.menuCache = menuCache;
     }
     async listItemOptionGroups(currentUser, branchId, itemId) {
         const item = await this.resolveOwnedItem(currentUser, branchId, itemId);
@@ -52,6 +54,7 @@ let MerchantMenuOptionGroupsService = class MerchantMenuOptionGroupsService {
                 isActive: payload.isActive ?? true,
             }, tx);
         });
+        void this.menuCache.invalidate(branchId);
         return (0, item_option_group_dto_1.toItemOptionGroupDto)(optionGroup);
     }
     async updateItemOptionGroup(currentUser, branchId, itemId, optionGroupId, payload) {
@@ -79,11 +82,13 @@ let MerchantMenuOptionGroupsService = class MerchantMenuOptionGroupsService {
                 ? { isActive: payload.isActive }
                 : {}),
         });
+        void this.menuCache.invalidate(branchId);
         return (0, item_option_group_dto_1.toItemOptionGroupDto)(updatedGroup);
     }
     async deleteItemOptionGroup(currentUser, branchId, itemId, optionGroupId) {
         const optionGroup = await this.resolveOwnedOptionGroup(currentUser, branchId, itemId, optionGroupId);
         await this.menusRepository.deleteOptionGroup(optionGroup.id);
+        void this.menuCache.invalidate(branchId);
     }
     async resolveOwnedItem(currentUser, branchId, itemId) {
         const item = await this.menusService.findItemOwnedByUserId(currentUser.userId, itemId);
@@ -143,6 +148,7 @@ exports.MerchantMenuOptionGroupsService = MerchantMenuOptionGroupsService = __de
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         menus_service_1.MenusService,
         menus_repository_1.MenusRepository,
-        menu_option_group_policy_service_1.MenuOptionGroupPolicyService])
+        menu_option_group_policy_service_1.MenuOptionGroupPolicyService,
+        menu_cache_service_1.MenuCacheService])
 ], MerchantMenuOptionGroupsService);
 //# sourceMappingURL=merchant-menu-option-groups.service.js.map

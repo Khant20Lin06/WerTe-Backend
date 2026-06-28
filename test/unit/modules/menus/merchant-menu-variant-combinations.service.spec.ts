@@ -10,6 +10,7 @@ import { ItemVariantCombinationOwnershipRecord } from '../../../../src/modules/m
 import { MenuItemOwnershipRecord } from '../../../../src/modules/menus/entities/menu-item-ownership.entity';
 import { MenuItemPolicyService } from '../../../../src/modules/menus/policies/menu-item-policy.service';
 import { MenusRepository } from '../../../../src/modules/menus/repositories/menus.repository';
+import { MenuCacheService } from '../../../../src/modules/menus/services/menu-cache.service';
 import { MerchantMenuVariantCombinationsService } from '../../../../src/modules/menus/services/merchant-menu-variant-combinations.service';
 import { MenusService } from '../../../../src/modules/menus/services/menus.service';
 
@@ -167,6 +168,13 @@ describe('MerchantMenuVariantCombinationsService', () => {
     ),
   } as unknown as PrismaService;
 
+  const makeMenuCache = () =>
+    ({
+      getCatalog: jest.fn().mockResolvedValue(null),
+      setCatalog: jest.fn().mockResolvedValue(undefined),
+      invalidate: jest.fn().mockResolvedValue(undefined),
+    }) as unknown as MenuCacheService;
+
   it('creates a variant combination and auto-generates a label when omitted', async () => {
     const menusRepository = {
       findVariantCombinationByMenuItemIdAndSignature: jest
@@ -221,6 +229,7 @@ describe('MerchantMenuVariantCombinationsService', () => {
       } as unknown as MenusService,
       menusRepository,
       new MenuItemPolicyService(),
+      makeMenuCache(),
     );
 
     const result = await service.createItemVariantCombination(
@@ -271,6 +280,7 @@ describe('MerchantMenuVariantCombinationsService', () => {
           .mockResolvedValue(makeCombination()),
       } as unknown as MenusRepository,
       new MenuItemPolicyService(),
+      makeMenuCache(),
     );
 
     await expect(

@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const swagger_1 = require("@nestjs/swagger");
 const current_user_decorator_1 = require("../../../common/decorators/current-user.decorator");
+const public_decorator_1 = require("../../../common/decorators/public.decorator");
 const roles_decorator_1 = require("../../../common/decorators/roles.decorator");
 const authenticated_user_entity_1 = require("../../auth/entities/authenticated-user.entity");
 const customer_store_catalog_entry_dto_1 = require("../dto/customer-store-catalog-entry.dto");
@@ -45,6 +46,7 @@ let CustomerStoresController = class CustomerStoresController {
 };
 exports.CustomerStoresController = CustomerStoresController;
 __decorate([
+    (0, public_decorator_1.Public)(),
     (0, swagger_1.ApiOperation)({
         operationId: 'getCustomerStoreFacets',
         summary: 'Return customer-visible store discovery facets for the active filters',
@@ -57,11 +59,11 @@ __decorate([
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [authenticated_user_entity_1.AuthenticatedUserEntity,
-        list_customer_stores_query_dto_1.ListCustomerStoresQueryDto]),
+    __metadata("design:paramtypes", [Object, list_customer_stores_query_dto_1.ListCustomerStoresQueryDto]),
     __metadata("design:returntype", void 0)
 ], CustomerStoresController.prototype, "facets", null);
 __decorate([
+    (0, public_decorator_1.Public)(),
     (0, swagger_1.ApiOperation)({
         operationId: 'listCustomerStores',
         summary: 'List customer-visible stores with multi-type discovery filters',
@@ -75,8 +77,7 @@ __decorate([
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [authenticated_user_entity_1.AuthenticatedUserEntity,
-        list_customer_stores_query_dto_1.ListCustomerStoresQueryDto]),
+    __metadata("design:paramtypes", [Object, list_customer_stores_query_dto_1.ListCustomerStoresQueryDto]),
     __metadata("design:returntype", void 0)
 ], CustomerStoresController.prototype, "list", null);
 __decorate([

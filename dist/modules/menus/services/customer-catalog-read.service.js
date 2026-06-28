@@ -14,13 +14,21 @@ const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const error_codes_1 = require("../../../common/constants/error-codes");
 const app_exception_1 = require("../../../common/exceptions/app.exception");
+const menu_cache_service_1 = require("./menu-cache.service");
 const menus_service_1 = require("./menus.service");
 let CustomerCatalogReadService = class CustomerCatalogReadService {
-    constructor(menusService) {
+    constructor(menusService, menuCache) {
         this.menusService = menusService;
+        this.menuCache = menuCache;
     }
     async getVisibleBranchCatalog(branchId, options) {
-        const branchCatalog = await this.menusService.findBranchCatalogByBranchId(branchId);
+        let branchCatalog = await this.menuCache.getCatalog(branchId);
+        if (branchCatalog === null) {
+            branchCatalog = await this.menusService.findBranchCatalogByBranchId(branchId);
+            if (branchCatalog !== null) {
+                void this.menuCache.setCatalog(branchId, branchCatalog);
+            }
+        }
         if (branchCatalog === null) {
             return null;
         }
@@ -58,6 +66,7 @@ let CustomerCatalogReadService = class CustomerCatalogReadService {
 exports.CustomerCatalogReadService = CustomerCatalogReadService;
 exports.CustomerCatalogReadService = CustomerCatalogReadService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [menus_service_1.MenusService])
+    __metadata("design:paramtypes", [menus_service_1.MenusService,
+        menu_cache_service_1.MenuCacheService])
 ], CustomerCatalogReadService);
 //# sourceMappingURL=customer-catalog-read.service.js.map

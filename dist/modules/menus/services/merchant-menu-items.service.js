@@ -22,10 +22,11 @@ const menu_item_rule_profile_dto_1 = require("../dto/menu-item-rule-profile.dto"
 const menu_item_policy_service_1 = require("../policies/menu-item-policy.service");
 const menus_repository_1 = require("../repositories/menus.repository");
 const menu_vertical_catalog_rule_util_1 = require("../utils/menu-vertical-catalog-rule.util");
+const menu_cache_service_1 = require("./menu-cache.service");
 const menu_item_inventory_service_1 = require("./menu-item-inventory.service");
 const menus_service_1 = require("./menus.service");
 let MerchantMenuItemsService = class MerchantMenuItemsService {
-    constructor(prisma, branchesService, menusService, menusRepository, menuItemPolicyService, auditService, menuItemInventoryService) {
+    constructor(prisma, branchesService, menusService, menusRepository, menuItemPolicyService, auditService, menuItemInventoryService, menuCache) {
         this.prisma = prisma;
         this.branchesService = branchesService;
         this.menusService = menusService;
@@ -33,6 +34,7 @@ let MerchantMenuItemsService = class MerchantMenuItemsService {
         this.menuItemPolicyService = menuItemPolicyService;
         this.auditService = auditService;
         this.menuItemInventoryService = menuItemInventoryService;
+        this.menuCache = menuCache;
     }
     async listBranchItems(currentUser, branchId) {
         const branch = await this.resolveOwnedBranch(currentUser, branchId);
@@ -105,6 +107,7 @@ let MerchantMenuItemsService = class MerchantMenuItemsService {
                 isStockTracked: item.isStockTracked,
             },
         });
+        void this.menuCache.invalidate(branch.id);
         return (0, menu_item_dto_1.toMenuItemDto)(item);
     }
     async updateBranchItem(currentUser, branchId, itemId, payload) {
@@ -185,15 +188,19 @@ let MerchantMenuItemsService = class MerchantMenuItemsService {
                 },
             });
         }
+        void this.menuCache.invalidate(branchId);
         return (0, menu_item_dto_1.toMenuItemDto)(updatedItem);
     }
     async adjustBranchItemInventory(currentUser, branchId, itemId, payload) {
         const item = await this.resolveOwnedItem(currentUser, branchId, itemId);
-        return this.menuItemInventoryService.adjustBranchItemInventory(currentUser, item, payload);
+        const result = await this.menuItemInventoryService.adjustBranchItemInventory(currentUser, item, payload);
+        void this.menuCache.invalidate(branchId);
+        return result;
     }
     async deleteBranchItem(currentUser, branchId, itemId) {
         const item = await this.resolveOwnedItem(currentUser, branchId, itemId);
         await this.menusRepository.deleteItem(item.id);
+        void this.menuCache.invalidate(branchId);
     }
     buildScopeSnapshot(storeTypes) {
         return {
@@ -368,6 +375,7 @@ exports.MerchantMenuItemsService = MerchantMenuItemsService = __decorate([
         menus_repository_1.MenusRepository,
         menu_item_policy_service_1.MenuItemPolicyService,
         audit_service_1.AuditService,
-        menu_item_inventory_service_1.MenuItemInventoryService])
+        menu_item_inventory_service_1.MenuItemInventoryService,
+        menu_cache_service_1.MenuCacheService])
 ], MerchantMenuItemsService);
 //# sourceMappingURL=merchant-menu-items.service.js.map

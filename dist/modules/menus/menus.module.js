@@ -26,6 +26,7 @@ const menu_option_group_policy_service_1 = require("./policies/menu-option-group
 const menu_option_policy_service_1 = require("./policies/menu-option-policy.service");
 const menus_repository_1 = require("./repositories/menus.repository");
 const customer_catalog_read_service_1 = require("./services/customer-catalog-read.service");
+const menu_cache_service_1 = require("./services/menu-cache.service");
 const merchant_catalog_read_service_1 = require("./services/merchant-catalog-read.service");
 const merchant_inventory_read_service_1 = require("./services/merchant-inventory-read.service");
 const merchant_menu_categories_service_1 = require("./services/merchant-menu-categories.service");
@@ -57,6 +58,7 @@ exports.MenusModule = MenusModule = __decorate([
         providers: [
             menus_repository_1.MenusRepository,
             menus_service_1.MenusService,
+            menu_cache_service_1.MenuCacheService,
             merchant_catalog_read_service_1.MerchantCatalogReadService,
             merchant_inventory_read_service_1.MerchantInventoryReadService,
             customer_catalog_read_service_1.CustomerCatalogReadService,
@@ -75,6 +77,7 @@ exports.MenusModule = MenusModule = __decorate([
         ],
         exports: [
             menus_service_1.MenusService,
+            menu_cache_service_1.MenuCacheService,
             menu_inventory_lifecycle_service_1.MenuInventoryLifecycleService,
             merchant_catalog_read_service_1.MerchantCatalogReadService,
             merchant_inventory_read_service_1.MerchantInventoryReadService,

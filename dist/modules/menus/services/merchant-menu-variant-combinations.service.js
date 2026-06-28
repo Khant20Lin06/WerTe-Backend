@@ -19,13 +19,15 @@ const item_variant_combination_dto_1 = require("../dto/item-variant-combination.
 const menu_item_policy_service_1 = require("../policies/menu-item-policy.service");
 const menus_repository_1 = require("../repositories/menus.repository");
 const item_variant_combination_util_1 = require("../utils/item-variant-combination.util");
+const menu_cache_service_1 = require("./menu-cache.service");
 const menus_service_1 = require("./menus.service");
 let MerchantMenuVariantCombinationsService = class MerchantMenuVariantCombinationsService {
-    constructor(prisma, menusService, menusRepository, menuItemPolicyService) {
+    constructor(prisma, menusService, menusRepository, menuItemPolicyService, menuCache) {
         this.prisma = prisma;
         this.menusService = menusService;
         this.menusRepository = menusRepository;
         this.menuItemPolicyService = menuItemPolicyService;
+        this.menuCache = menuCache;
     }
     async listItemVariantCombinations(currentUser, branchId, itemId) {
         const item = await this.resolveOwnedItem(currentUser, branchId, itemId);
@@ -69,6 +71,7 @@ let MerchantMenuVariantCombinationsService = class MerchantMenuVariantCombinatio
                 code: error_codes_1.ErrorCodes.internalServerError,
             });
         }
+        void this.menuCache.invalidate(branchId);
         return (0, item_variant_combination_dto_1.toItemVariantCombinationDto)(combination);
     }
     async updateItemVariantCombination(currentUser, branchId, itemId, combinationId, payload) {
@@ -115,6 +118,7 @@ let MerchantMenuVariantCombinationsService = class MerchantMenuVariantCombinatio
                 code: error_codes_1.ErrorCodes.internalServerError,
             });
         }
+        void this.menuCache.invalidate(branchId);
         return (0, item_variant_combination_dto_1.toItemVariantCombinationDto)(updated);
     }
     async resolveOwnedItem(currentUser, branchId, itemId) {
@@ -284,6 +288,7 @@ exports.MerchantMenuVariantCombinationsService = MerchantMenuVariantCombinations
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         menus_service_1.MenusService,
         menus_repository_1.MenusRepository,
-        menu_item_policy_service_1.MenuItemPolicyService])
+        menu_item_policy_service_1.MenuItemPolicyService,
+        menu_cache_service_1.MenuCacheService])
 ], MerchantMenuVariantCombinationsService);
 //# sourceMappingURL=merchant-menu-variant-combinations.service.js.map

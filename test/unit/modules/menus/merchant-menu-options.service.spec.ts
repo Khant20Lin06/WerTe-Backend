@@ -11,6 +11,7 @@ import { ItemOptionOwnershipRecord } from '../../../../src/modules/menus/entitie
 import { MenuItemOwnershipRecord } from '../../../../src/modules/menus/entities/menu-item-ownership.entity';
 import { MenuOptionPolicyService } from '../../../../src/modules/menus/policies/menu-option-policy.service';
 import { MenusRepository } from '../../../../src/modules/menus/repositories/menus.repository';
+import { MenuCacheService } from '../../../../src/modules/menus/services/menu-cache.service';
 import { MerchantMenuOptionsService } from '../../../../src/modules/menus/services/merchant-menu-options.service';
 import { MenusService } from '../../../../src/modules/menus/services/menus.service';
 
@@ -125,6 +126,13 @@ describe('MerchantMenuOptionsService', () => {
       publishMerchantInventoryAlert: jest.fn().mockResolvedValue(undefined),
     }) as unknown as jest.Mocked<NotificationEventService>;
 
+  const makeMenuCache = () =>
+    ({
+      getCatalog: jest.fn().mockResolvedValue(null),
+      setCatalog: jest.fn().mockResolvedValue(undefined),
+      invalidate: jest.fn().mockResolvedValue(undefined),
+    }) as unknown as MenuCacheService;
+
   it('lists options for a merchant-owned option group', async () => {
     const service = new MerchantMenuOptionsService(
       prismaService,
@@ -138,6 +146,7 @@ describe('MerchantMenuOptionsService', () => {
       new MenuOptionPolicyService(),
       makeAuditService(),
       makeNotificationEventService(),
+      makeMenuCache(),
     );
 
     await expect(
@@ -188,6 +197,7 @@ describe('MerchantMenuOptionsService', () => {
       new MenuOptionPolicyService(),
       makeAuditService(),
       makeNotificationEventService(),
+      makeMenuCache(),
     );
 
     const result = await service.createGroupOption(
@@ -245,6 +255,7 @@ describe('MerchantMenuOptionsService', () => {
       new MenuOptionPolicyService(),
       makeAuditService(),
       makeNotificationEventService(),
+      makeMenuCache(),
     );
 
     const result = await service.createGroupOption(
@@ -294,6 +305,7 @@ describe('MerchantMenuOptionsService', () => {
       new MenuOptionPolicyService(),
       makeAuditService(),
       makeNotificationEventService(),
+      makeMenuCache(),
     );
 
     await expect(
@@ -330,6 +342,7 @@ describe('MerchantMenuOptionsService', () => {
       new MenuOptionPolicyService(),
       makeAuditService(),
       makeNotificationEventService(),
+      makeMenuCache(),
     );
 
     const result = await service.updateGroupOption(
@@ -383,6 +396,7 @@ describe('MerchantMenuOptionsService', () => {
       new MenuOptionPolicyService(),
       auditService,
       notificationEventService,
+      makeMenuCache(),
     );
 
     const result = await service.adjustGroupOptionInventory(
@@ -444,6 +458,7 @@ describe('MerchantMenuOptionsService', () => {
       new MenuOptionPolicyService(),
       makeAuditService(),
       notificationEventService,
+      makeMenuCache(),
     );
 
     await service.adjustGroupOptionInventory(

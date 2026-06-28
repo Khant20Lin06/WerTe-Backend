@@ -15,8 +15,8 @@ export declare class CustomerStoreDiscoveryService {
     private readonly discoveryCache;
     private readonly prisma;
     constructor(storeTypesRepository: StoreTypesRepository, customerCatalogReadService: CustomerCatalogReadService, discoveryCache: DiscoveryCacheService, prisma: PrismaService);
-    listDiscoverableStores(currentUser: AuthenticatedUserEntity, query: ListCustomerStoresQueryDto): Promise<CustomerStoreSummaryDto[]>;
-    getDiscoverableStoreFacets(currentUser: AuthenticatedUserEntity, query: ListCustomerStoresQueryDto): Promise<CustomerStoreFacetsDto>;
+    listDiscoverableStores(currentUser: AuthenticatedUserEntity | null, query: ListCustomerStoresQueryDto): Promise<CustomerStoreSummaryDto[]>;
+    getDiscoverableStoreFacets(currentUser: AuthenticatedUserEntity | null, query: ListCustomerStoresQueryDto): Promise<CustomerStoreFacetsDto>;
     getDiscoverableStoreDetail(currentUser: AuthenticatedUserEntity, branchId: string): Promise<CustomerStoreDetailDto>;
     getDiscoverableStoreCatalogEntry(currentUser: AuthenticatedUserEntity, branchId: string, query: GetCustomerStoreCatalogQueryDto): Promise<CustomerStoreCatalogEntryDto>;
     private fetchBranchRatingMap;

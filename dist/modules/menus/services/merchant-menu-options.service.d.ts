@@ -8,6 +8,7 @@ import { ItemOptionDto } from '../dto/item-option.dto';
 import { UpdateItemOptionDto } from '../dto/update-item-option.dto';
 import { MenuOptionPolicyService } from '../policies/menu-option-policy.service';
 import { MenusRepository } from '../repositories/menus.repository';
+import { MenuCacheService } from './menu-cache.service';
 import { MenusService } from './menus.service';
 export declare class MerchantMenuOptionsService {
     private readonly prisma;
@@ -16,7 +17,8 @@ export declare class MerchantMenuOptionsService {
     private readonly menuOptionPolicyService;
     private readonly auditService;
     private readonly notificationEventService;
-    constructor(prisma: PrismaService, menusService: MenusService, menusRepository: MenusRepository, menuOptionPolicyService: MenuOptionPolicyService, auditService: AuditService, notificationEventService: NotificationEventService);
+    private readonly menuCache;
+    constructor(prisma: PrismaService, menusService: MenusService, menusRepository: MenusRepository, menuOptionPolicyService: MenuOptionPolicyService, auditService: AuditService, notificationEventService: NotificationEventService, menuCache: MenuCacheService);
     listGroupOptions(currentUser: AuthenticatedUserEntity, branchId: string, itemId: string, optionGroupId: string): Promise<ItemOptionDto[]>;
     getGroupOption(currentUser: AuthenticatedUserEntity, branchId: string, itemId: string, optionGroupId: string, optionId: string): Promise<ItemOptionDto>;
     createGroupOption(currentUser: AuthenticatedUserEntity, branchId: string, itemId: string, optionGroupId: string, payload: CreateItemOptionDto): Promise<ItemOptionDto>;

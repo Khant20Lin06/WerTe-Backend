@@ -16,6 +16,7 @@ import { BranchesService } from '../../../../src/modules/branches/services/branc
 import { MenuCategoryOwnershipRecord } from '../../../../src/modules/menus/entities/menu-category-ownership.entity';
 import { MenuCategoryPolicyService } from '../../../../src/modules/menus/policies/menu-category-policy.service';
 import { MenusRepository } from '../../../../src/modules/menus/repositories/menus.repository';
+import { MenuCacheService } from '../../../../src/modules/menus/services/menu-cache.service';
 import { MerchantMenuCategoriesService } from '../../../../src/modules/menus/services/merchant-menu-categories.service';
 import { MenusService } from '../../../../src/modules/menus/services/menus.service';
 
@@ -108,6 +109,13 @@ describe('MerchantMenuCategoriesService', () => {
       logAction: jest.fn().mockResolvedValue({}),
     }) as unknown as jest.Mocked<AuditService>;
 
+  const makeMenuCache = () =>
+    ({
+      getCatalog: jest.fn().mockResolvedValue(null),
+      setCatalog: jest.fn().mockResolvedValue(undefined),
+      invalidate: jest.fn().mockResolvedValue(undefined),
+    }) as unknown as MenuCacheService;
+
   it('lists categories for a merchant-owned branch', async () => {
     const service = new MerchantMenuCategoriesService(
       prismaService,
@@ -120,6 +128,7 @@ describe('MerchantMenuCategoriesService', () => {
       {} as MenusRepository,
       new MenuCategoryPolicyService(),
       makeAuditService(),
+      makeMenuCache(),
     );
 
     await expect(
@@ -217,6 +226,7 @@ describe('MerchantMenuCategoriesService', () => {
       menusRepository,
       new MenuCategoryPolicyService(),
       auditService,
+      makeMenuCache(),
     );
 
     const result = await service.createBranchCategory(currentUser, 'branch_1', {
@@ -274,6 +284,7 @@ describe('MerchantMenuCategoriesService', () => {
       menusRepository,
       new MenuCategoryPolicyService(),
       makeAuditService(),
+      makeMenuCache(),
     );
 
     await expect(
@@ -318,6 +329,7 @@ describe('MerchantMenuCategoriesService', () => {
       {} as MenusRepository,
       new MenuCategoryPolicyService(),
       makeAuditService(),
+      makeMenuCache(),
     );
 
     await expect(
@@ -387,6 +399,7 @@ describe('MerchantMenuCategoriesService', () => {
       menusRepository,
       new MenuCategoryPolicyService(),
       auditService,
+      makeMenuCache(),
     );
 
     await service.updateBranchCategory(currentUser, 'branch_1', 'cat_1', {

@@ -15,6 +15,7 @@ import { ItemOptionGroupOwnershipRecord } from '../../../../src/modules/menus/en
 import { MenuItemOwnershipRecord } from '../../../../src/modules/menus/entities/menu-item-ownership.entity';
 import { MenuOptionGroupPolicyService } from '../../../../src/modules/menus/policies/menu-option-group-policy.service';
 import { MenusRepository } from '../../../../src/modules/menus/repositories/menus.repository';
+import { MenuCacheService } from '../../../../src/modules/menus/services/menu-cache.service';
 import { MerchantMenuOptionGroupsService } from '../../../../src/modules/menus/services/merchant-menu-option-groups.service';
 import { MenusService } from '../../../../src/modules/menus/services/menus.service';
 
@@ -101,6 +102,13 @@ describe('MerchantMenuOptionGroupsService', () => {
     ),
   } as unknown as PrismaService;
 
+  const makeMenuCache = () =>
+    ({
+      getCatalog: jest.fn().mockResolvedValue(null),
+      setCatalog: jest.fn().mockResolvedValue(undefined),
+      invalidate: jest.fn().mockResolvedValue(undefined),
+    }) as unknown as MenuCacheService;
+
   it('lists option groups for a merchant-owned menu item', async () => {
     const service = new MerchantMenuOptionGroupsService(
       prismaService,
@@ -112,6 +120,7 @@ describe('MerchantMenuOptionGroupsService', () => {
       } as unknown as MenusService,
       {} as MenusRepository,
       new MenuOptionGroupPolicyService(),
+      makeMenuCache(),
     );
 
     await expect(
@@ -156,6 +165,7 @@ describe('MerchantMenuOptionGroupsService', () => {
       } as unknown as MenusService,
       menusRepository,
       new MenuOptionGroupPolicyService(),
+      makeMenuCache(),
     );
 
     const result = await service.createItemOptionGroup(
@@ -193,6 +203,7 @@ describe('MerchantMenuOptionGroupsService', () => {
       } as unknown as MenusService,
       {} as MenusRepository,
       new MenuOptionGroupPolicyService(),
+      makeMenuCache(),
     );
 
     await expect(
@@ -223,6 +234,7 @@ describe('MerchantMenuOptionGroupsService', () => {
       } as unknown as MenusService,
       {} as MenusRepository,
       new MenuOptionGroupPolicyService(),
+      makeMenuCache(),
     );
 
     await expect(
@@ -245,6 +257,7 @@ describe('MerchantMenuOptionGroupsService', () => {
       } as unknown as MenusService,
       {} as MenusRepository,
       new MenuOptionGroupPolicyService(),
+      makeMenuCache(),
     );
 
     await expect(

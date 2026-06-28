@@ -32,7 +32,6 @@ let CustomerStoreDiscoveryService = class CustomerStoreDiscoveryService {
         this.prisma = prisma;
     }
     async listDiscoverableStores(currentUser, query) {
-        this.assertCanDiscoverStores(currentUser);
         const { branches, selectedStoreTypeCodes } = await this.findDiscoverableBranches(query);
         const sorted = this.sortBranches(branches, query.sortBy);
         const branchIds = sorted.map((b) => b.id);
@@ -40,7 +39,6 @@ let CustomerStoreDiscoveryService = class CustomerStoreDiscoveryService {
         return sorted.map((branch) => this.toCustomerStoreSummary(branch, selectedStoreTypeCodes, ratingMap.get(branch.id)));
     }
     async getDiscoverableStoreFacets(currentUser, query) {
-        this.assertCanDiscoverStores(currentUser);
         const { branches } = await this.findDiscoverableBranches(query);
         return (0, customer_store_facets_dto_1.toCustomerStoreFacetsDto)(branches);
     }

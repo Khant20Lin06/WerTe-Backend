@@ -20,15 +20,17 @@ const notification_event_service_1 = require("../../notifications/services/notif
 const item_option_dto_1 = require("../dto/item-option.dto");
 const menu_option_policy_service_1 = require("../policies/menu-option-policy.service");
 const menus_repository_1 = require("../repositories/menus.repository");
+const menu_cache_service_1 = require("./menu-cache.service");
 const menus_service_1 = require("./menus.service");
 let MerchantMenuOptionsService = class MerchantMenuOptionsService {
-    constructor(prisma, menusService, menusRepository, menuOptionPolicyService, auditService, notificationEventService) {
+    constructor(prisma, menusService, menusRepository, menuOptionPolicyService, auditService, notificationEventService, menuCache) {
         this.prisma = prisma;
         this.menusService = menusService;
         this.menusRepository = menusRepository;
         this.menuOptionPolicyService = menuOptionPolicyService;
         this.auditService = auditService;
         this.notificationEventService = notificationEventService;
+        this.menuCache = menuCache;
     }
     async listGroupOptions(currentUser, branchId, itemId, optionGroupId) {
         const optionGroup = await this.resolveOwnedOptionGroup(currentUser, branchId, itemId, optionGroupId);
@@ -53,6 +55,7 @@ let MerchantMenuOptionsService = class MerchantMenuOptionsService {
                 isActive: payload.isActive ?? true,
             }, tx);
         });
+        void this.menuCache.invalidate(branchId);
         return (0, item_option_dto_1.toItemOptionDto)(option);
     }
     async updateGroupOption(currentUser, branchId, itemId, optionGroupId, optionId, payload) {
@@ -70,6 +73,7 @@ let MerchantMenuOptionsService = class MerchantMenuOptionsService {
                 ? { isActive: payload.isActive }
                 : {}),
         });
+        void this.menuCache.invalidate(branchId);
         return (0, item_option_dto_1.toItemOptionDto)(updatedOption);
     }
     async adjustGroupOptionInventory(currentUser, branchId, itemId, optionGroupId, optionId, payload) {
@@ -116,6 +120,7 @@ let MerchantMenuOptionsService = class MerchantMenuOptionsService {
             },
         });
         await this.publishInventoryAlertIfNeeded(option, updatedOption);
+        void this.menuCache.invalidate(branchId);
         return (0, item_option_dto_1.toItemOptionDto)(updatedOption);
     }
     normalizeCreateInventory(payload) {
@@ -172,6 +177,7 @@ let MerchantMenuOptionsService = class MerchantMenuOptionsService {
     async deleteGroupOption(currentUser, branchId, itemId, optionGroupId, optionId) {
         const option = await this.resolveOwnedOption(currentUser, branchId, itemId, optionGroupId, optionId);
         await this.menusRepository.deleteOption(option.id);
+        void this.menuCache.invalidate(branchId);
     }
     async resolveOwnedOptionGroup(currentUser, branchId, itemId, optionGroupId) {
         const optionGroup = await this.menusService.findOptionGroupOwnedByUserId(currentUser.userId, optionGroupId);
@@ -289,6 +295,7 @@ exports.MerchantMenuOptionsService = MerchantMenuOptionsService = __decorate([
         menus_repository_1.MenusRepository,
         menu_option_policy_service_1.MenuOptionPolicyService,
         audit_service_1.AuditService,
-        notification_event_service_1.NotificationEventService])
+        notification_event_service_1.NotificationEventService,
+        menu_cache_service_1.MenuCacheService])
 ], MerchantMenuOptionsService);
 //# sourceMappingURL=merchant-menu-options.service.js.map

@@ -9,8 +9,8 @@ import { CustomerStoreDiscoveryService } from '../services/customer-store-discov
 export declare class CustomerStoresController {
     private readonly customerStoreDiscoveryService;
     constructor(customerStoreDiscoveryService: CustomerStoreDiscoveryService);
-    facets(currentUser: AuthenticatedUserEntity, query: ListCustomerStoresQueryDto): Promise<CustomerStoreFacetsDto>;
-    list(currentUser: AuthenticatedUserEntity, query: ListCustomerStoresQueryDto): Promise<CustomerStoreSummaryDto[]>;
+    facets(currentUser: AuthenticatedUserEntity | null, query: ListCustomerStoresQueryDto): Promise<CustomerStoreFacetsDto>;
+    list(currentUser: AuthenticatedUserEntity | null, query: ListCustomerStoresQueryDto): Promise<CustomerStoreSummaryDto[]>;
     detail(currentUser: AuthenticatedUserEntity, branchId: string): Promise<CustomerStoreDetailDto>;
     catalog(currentUser: AuthenticatedUserEntity, branchId: string, query: GetCustomerStoreCatalogQueryDto): Promise<CustomerStoreCatalogEntryDto>;
 }

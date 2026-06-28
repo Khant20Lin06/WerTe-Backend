@@ -20,15 +20,17 @@ const branches_service_1 = require("../../branches/services/branches.service");
 const menu_category_dto_1 = require("../dto/menu-category.dto");
 const menu_category_policy_service_1 = require("../policies/menu-category-policy.service");
 const menus_repository_1 = require("../repositories/menus.repository");
+const menu_cache_service_1 = require("./menu-cache.service");
 const menus_service_1 = require("./menus.service");
 let MerchantMenuCategoriesService = class MerchantMenuCategoriesService {
-    constructor(prisma, branchesService, menusService, menusRepository, menuCategoryPolicyService, auditService) {
+    constructor(prisma, branchesService, menusService, menusRepository, menuCategoryPolicyService, auditService, menuCache) {
         this.prisma = prisma;
         this.branchesService = branchesService;
         this.menusService = menusService;
         this.menusRepository = menusRepository;
         this.menuCategoryPolicyService = menuCategoryPolicyService;
         this.auditService = auditService;
+        this.menuCache = menuCache;
     }
     async listBranchCategories(currentUser, branchId) {
         const branch = await this.resolveOwnedBranch(currentUser, branchId);
@@ -76,6 +78,7 @@ let MerchantMenuCategoriesService = class MerchantMenuCategoriesService {
                 sortOrder: category.sortOrder,
             },
         });
+        void this.menuCache.invalidate(branch.id);
         return (0, menu_category_dto_1.toMenuCategoryDto)(category);
     }
     async updateBranchCategory(currentUser, branchId, categoryId, payload) {
@@ -122,11 +125,13 @@ let MerchantMenuCategoriesService = class MerchantMenuCategoriesService {
                 },
             });
         }
+        void this.menuCache.invalidate(branchId);
         return (0, menu_category_dto_1.toMenuCategoryDto)(updatedCategory);
     }
     async deleteBranchCategory(currentUser, branchId, categoryId) {
         const category = await this.resolveOwnedCategory(currentUser, branchId, categoryId);
         await this.menusRepository.deleteCategory(category.id);
+        void this.menuCache.invalidate(branchId);
     }
     buildScopeSnapshot(storeTypes) {
         return {
@@ -205,6 +210,7 @@ exports.MerchantMenuCategoriesService = MerchantMenuCategoriesService = __decora
         menus_service_1.MenusService,
         menus_repository_1.MenusRepository,
         menu_category_policy_service_1.MenuCategoryPolicyService,
-        audit_service_1.AuditService])
+        audit_service_1.AuditService,
+        menu_cache_service_1.MenuCacheService])
 ], MerchantMenuCategoriesService);
 //# sourceMappingURL=merchant-menu-categories.service.js.map

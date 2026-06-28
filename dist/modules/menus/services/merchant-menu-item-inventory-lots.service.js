@@ -19,14 +19,16 @@ const audit_service_1 = require("../../audit/services/audit.service");
 const notification_event_service_1 = require("../../notifications/services/notification-event.service");
 const item_inventory_lot_dto_1 = require("../dto/item-inventory-lot.dto");
 const menus_repository_1 = require("../repositories/menus.repository");
+const menu_cache_service_1 = require("./menu-cache.service");
 const menus_service_1 = require("./menus.service");
 let MerchantMenuItemInventoryLotsService = class MerchantMenuItemInventoryLotsService {
-    constructor(prisma, menusService, menusRepository, auditService, notificationEventService) {
+    constructor(prisma, menusService, menusRepository, auditService, notificationEventService, menuCache) {
         this.prisma = prisma;
         this.menusService = menusService;
         this.menusRepository = menusRepository;
         this.auditService = auditService;
         this.notificationEventService = notificationEventService;
+        this.menuCache = menuCache;
     }
     async listItemInventoryLots(currentUser, branchId, itemId) {
         const item = await this.resolveOwnedItem(currentUser, branchId, itemId);
@@ -90,6 +92,7 @@ let MerchantMenuItemInventoryLotsService = class MerchantMenuItemInventoryLotsSe
                 note,
             },
         });
+        void this.menuCache.invalidate(branchId);
         return (0, item_inventory_lot_dto_1.toItemInventoryLotDto)(createdLot);
     }
     async updateItemInventoryLot(currentUser, branchId, itemId, lotId, payload) {
@@ -139,6 +142,7 @@ let MerchantMenuItemInventoryLotsService = class MerchantMenuItemInventoryLotsSe
                 note: updatedLot.note ?? null,
             },
         });
+        void this.menuCache.invalidate(branchId);
         return (0, item_inventory_lot_dto_1.toItemInventoryLotDto)(updatedLot);
     }
     async adjustItemInventoryLot(currentUser, branchId, itemId, lotId, payload) {
@@ -209,6 +213,7 @@ let MerchantMenuItemInventoryLotsService = class MerchantMenuItemInventoryLotsSe
             },
         });
         await this.publishInventoryAlertIfNeeded(item, updatedItem);
+        void this.menuCache.invalidate(branchId);
         return (0, item_inventory_lot_dto_1.toItemInventoryLotDto)(updatedLot);
     }
     async hasItemInventoryLots(itemId) {
@@ -326,6 +331,7 @@ exports.MerchantMenuItemInventoryLotsService = MerchantMenuItemInventoryLotsServ
         menus_service_1.MenusService,
         menus_repository_1.MenusRepository,
         audit_service_1.AuditService,
-        notification_event_service_1.NotificationEventService])
+        notification_event_service_1.NotificationEventService,
+        menu_cache_service_1.MenuCacheService])
 ], MerchantMenuItemInventoryLotsService);
 //# sourceMappingURL=merchant-menu-item-inventory-lots.service.js.map
