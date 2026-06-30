@@ -10,6 +10,7 @@ import { RefundProviderEventProcessingJob } from '../../jobs/refund-provider-eve
 import { RiderLocationCleanupJob } from '../../jobs/rider-location-cleanup.job';
 import { NotificationModule } from '../notifications/notification.module';
 import { NotificationsModule } from '../../modules/notifications/notifications.module';
+import { MenusModule } from '../../modules/menus/menus.module';
 import { OrdersModule } from '../../modules/orders/orders.module';
 import { PaymentsModule } from '../../modules/payments/payments.module';
 import { RefundsModule } from '../../modules/refunds/refunds.module';
@@ -21,6 +22,7 @@ import { QueueService } from './queue.service';
   imports: [
     NotificationModule,
     NotificationsModule,
+    MenusModule,
     OrdersModule,
     PaymentsModule,
     RefundsModule,

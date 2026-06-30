@@ -124,16 +124,17 @@ export class OrdersRepository {
 
   findCustomerOrderSummaries(
     customerProfileId: string,
-    limit = 20,
+    options: { limit?: number; page?: number } = {},
     client: OrderDatabaseClient = this.prisma,
   ): Promise<OrderSummaryRecord[]> {
+    const limit = options.limit ?? 20;
+    const page = options.page ?? 1;
     return client.order.findMany({
-      where: {
-        customerProfileId,
-      },
+      where: { customerProfileId },
       include: orderSummaryInclude,
       orderBy: [{ placedAt: 'desc' }, { id: 'desc' }],
       take: limit,
+      skip: (page - 1) * limit,
     });
   }
 

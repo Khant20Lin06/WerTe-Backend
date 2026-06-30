@@ -113,6 +113,55 @@ let RiderDeliveryActionsService = class RiderDeliveryActionsService {
             }),
         });
     }
+    async cancelCurrentRiderDelivery(currentUser, input) {
+        const riderId = this.requireRiderId(currentUser);
+        const delivery = await this.deliveriesRepository.findRiderDeliveryById(input.deliveryId, riderId);
+        if (delivery === null) {
+            throw new app_exception_1.AppException('Delivery was not found.', common_1.HttpStatus.NOT_FOUND, {
+                code: error_codes_1.ErrorCodes.notFound,
+            });
+        }
+        if (!(0, rider_delivery_policy_helper_1.canRiderCancelPrePickup)(currentUser, delivery)) {
+            throw new app_exception_1.AppException('This delivery can no longer be cancelled.', common_1.HttpStatus.CONFLICT, { code: error_codes_1.ErrorCodes.conflict });
+        }
+        const reasonCode = this.normalizeOptionalString(input.reasonCode) ?? 'rider_cancelled_pre_pickup';
+        const note = this.normalizeOptionalString(input.note);
+        const now = new Date();
+        await this.prisma.runInTransaction(async (tx) => {
+            await this.deliveriesRepository.updateById(delivery.id, {
+                rider: { disconnect: true },
+                status: client_1.DeliveryStatus.PENDING_ASSIGNMENT,
+                etaMinutes: null,
+                acceptedAt: null,
+                pickedUpAt: null,
+                onTheWayAt: null,
+                deliveredAt: null,
+                failedAt: null,
+                cancelledAt: now,
+                failureReasonCode: reasonCode,
+                failureNote: note,
+            }, tx);
+            await this.ordersRepository.updateOrderStatus(delivery.orderId, {
+                status: client_1.OrderStatus.MERCHANT_ACCEPTED,
+                fromStatus: delivery.order.status,
+                changedByUserId: currentUser.userId,
+                reasonCode,
+                note,
+            }, tx);
+        });
+        await this.systemMessageService.publishOrderEvent(currentUser, {
+            orderId: delivery.orderId,
+            code: 'ORDER_CANCELLED',
+            metadata: {
+                actorUserId: currentUser.userId,
+                deliveryId: delivery.id,
+                reasonCode,
+                note,
+            },
+            templateVariables: { reasonCode, note },
+        });
+        await this.queueService.add(queue_constants_1.QueueNames.dispatch, queue_constants_1.QueueJobNames.dispatch.autoDispatchOrder, { orderId: delivery.orderId }, { delayMs: 500 });
+    }
     failCurrentRiderDelivery(currentUser, input) {
         return this.handleTransition(currentUser, input, {
             targetOrderStatus: client_1.OrderStatus.FAILED_DELIVERY,

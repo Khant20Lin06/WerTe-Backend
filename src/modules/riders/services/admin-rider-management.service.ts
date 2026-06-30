@@ -21,7 +21,7 @@ export class AdminRiderManagementService {
       include: riderOwnershipInclude,
       orderBy: { createdAt: 'desc' },
     });
-    return riders.map(toRiderProfileDto);
+    return riders.map((rider) => toRiderProfileDto(rider));
   }
 
   async updateRiderStatus(

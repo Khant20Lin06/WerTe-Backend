@@ -115,7 +115,33 @@ export class MessageRepository {
       return createdMessage;
     });
 
+    void this.pruneOldMessages(payload.conversationId).catch(() => undefined);
+
     return buildSentMessage(message);
+  }
+
+  async pruneOldMessages(conversationId: string, keep = 20): Promise<number> {
+    const stale = await this.prisma.message.findMany({
+      where: {
+        conversationId,
+        lastForConversations: { none: {} },
+      },
+      select: { id: true },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      skip: keep,
+    });
+
+    if (stale.length === 0) {
+      return 0;
+    }
+
+    const result = await this.prisma.message.deleteMany({
+      where: {
+        id: { in: stale.map((m) => m.id) },
+      },
+    });
+
+    return result.count;
   }
 
   createSystemEvent(payload: {

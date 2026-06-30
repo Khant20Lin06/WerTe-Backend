@@ -177,6 +177,68 @@ export class OrderCancellationService {
     );
   }
 
+  async cancelOrderForSystem(
+    orderId: string,
+    actorUserId: string,
+    reasonCode: string,
+    notifyCustomer?: { customerUserId: string; orderCode: string; notificationReasonCode: 'merchant_timeout' | 'rider_timeout' },
+  ): Promise<void> {
+    const order = await this.ordersRepository.findOrderDetailById(orderId);
+    if (order === null) return;
+    if (order.status === OrderStatus.CANCELLED) return;
+
+    await this.prisma.runInTransaction(async (tx) => {
+      await this.ordersRepository.updateOrderStatus(
+        orderId,
+        {
+          status: OrderStatus.CANCELLED,
+          fromStatus: order.status,
+          changedByUserId: actorUserId,
+          reasonCode,
+          note: null,
+        },
+        tx,
+      );
+
+      if (shouldReleaseInventoryForOrderTransition(order.status, OrderStatus.CANCELLED)) {
+        await this.menuInventoryLifecycleService.restoreTrackedInventoryForOrder(
+          order.items.map((item) => ({
+            menuItemId: item.menuItemId,
+            quantity: item.quantity,
+            menuItemStockTrackedSnapshot: item.menuItemStockTrackedSnapshot,
+            selectedVariantCombinationId: item.selectedVariantCombinationId,
+            variantCombinationStockTrackedSnapshot:
+              item.variantCombinationStockTrackedSnapshot,
+            inventoryLotAllocations: (item.inventoryLotAllocations ?? []).map(
+              (allocation) => ({
+                inventoryLotId: allocation.inventoryLotId,
+                batchNoSnapshot: allocation.batchNoSnapshot,
+                expiryDateSnapshot:
+                  allocation.expiryDateSnapshot?.toISOString() ?? null,
+                quantity: allocation.quantity,
+              }),
+            ),
+            selectedOptions: item.selectedOptions.map((selectedOption) => ({
+              itemOptionId: selectedOption.itemOptionId,
+              itemOptionStockTrackedSnapshot:
+                selectedOption.itemOptionStockTrackedSnapshot,
+            })),
+          })),
+          tx,
+        );
+      }
+    });
+
+    if (notifyCustomer !== undefined) {
+      await this.notificationEventService.publishOrderAutoCancelled({
+        customerUserId: notifyCustomer.customerUserId,
+        orderId,
+        orderCode: notifyCustomer.orderCode,
+        reasonCode: notifyCustomer.notificationReasonCode,
+      });
+    }
+  }
+
   private async publishRestoredInventoryAlerts(
     alerts: Awaited<
       ReturnType<MenuInventoryLifecycleService['collectTrackedInventoryRestorationAlerts']>

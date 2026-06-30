@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import {
   ApiBearerAuth,
@@ -244,6 +244,33 @@ export class RiderDeliveriesController {
       'Marks the delivery as failed and returns the updated delivery snapshot.',
     type: DeliveryDetailDto,
   })
+  @ApiOperation({
+    operationId: 'cancelRiderDeliveryPrePickup',
+    summary: 'Cancel an accepted delivery before pickup',
+  })
+  @ApiParam({
+    name: 'deliveryId',
+    description: 'Accepted delivery identifier to cancel.',
+    example: 'delivery_1',
+  })
+  @ApiBody({ type: RiderDeliveryActionDto, required: false })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Post('deliveries/:deliveryId/cancel')
+  async cancelPrePickup(
+    @CurrentUser() currentUser: AuthenticatedUserEntity,
+    @Param('deliveryId') deliveryId: string,
+    @Body() body?: RiderDeliveryActionDto,
+  ): Promise<void> {
+    await this.riderDeliveryActionsService.cancelCurrentRiderDelivery(
+      currentUser,
+      {
+        deliveryId,
+        reasonCode: body?.reasonCode,
+        note: body?.note,
+      },
+    );
+  }
+
   @Post('deliveries/:deliveryId/failed')
   async markFailed(
     @CurrentUser() currentUser: AuthenticatedUserEntity,

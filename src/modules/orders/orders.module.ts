@@ -43,6 +43,7 @@ import { OrderPolicyService } from './policies/order-policy.service';
     OrdersRepository,
     OrderCreationService,
     OrderPolicyService,
+    OrderCancellationService,
   ],
 })
 export class OrdersModule {}

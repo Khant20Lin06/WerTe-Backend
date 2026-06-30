@@ -220,9 +220,8 @@ export class CheckoutSubmissionService {
         await this.queueService.add(
           QueueNames.orderTimeouts,
           QueueJobNames.orderTimeouts.startTimeout,
-          {
-            orderId: result.order.id,
-          },
+          { orderId: result.order.id },
+          { delayMs: 30 * 60 * 1000 },
         );
         await this.systemMessageService.publishOrderEvent(currentUser, {
           orderId: result.order.id,

@@ -1,15 +1,20 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { RiderStatus } from '@prisma/client';
+import { RatingTargetType, RiderStatus } from '@prisma/client';
 
 import { ErrorCodes } from '../../../common/constants/error-codes';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { AuthenticatedUserEntity } from '../../auth/entities/authenticated-user.entity';
+import { RatingsService } from '../../ratings/ratings.service';
 import { RiderOwnershipRecord } from '../entities/rider-ownership.entity';
 import {
   RiderOperationalSummaryDto,
   toRiderOperationalSummaryDto,
 } from '../dto/rider-operational-summary.dto';
-import { RiderProfileDto, toRiderProfileDto } from '../dto/rider-profile.dto';
+import {
+  RiderProfileDto,
+  RiderRatingSummary,
+  toRiderProfileDto,
+} from '../dto/rider-profile.dto';
 import { UpdateRiderProfileDto } from '../dto/update-rider-profile.dto';
 import { RiderPolicyService } from '../policies/rider-policy.service';
 import { RidersRepository } from '../repositories/riders.repository';
@@ -21,14 +26,27 @@ export class RiderAccountService {
     private readonly ridersService: RidersService,
     private readonly ridersRepository: RidersRepository,
     private readonly riderPolicyService: RiderPolicyService,
+    private readonly ratingsService: RatingsService,
   ) {}
 
   async getCurrentRiderProfile(
     currentUser: AuthenticatedUserEntity,
   ): Promise<RiderProfileDto> {
     const rider = await this.resolveOwnedRider(currentUser);
+    const rating = await this.fetchRiderRating(rider.id);
 
-    return toRiderProfileDto(rider);
+    return toRiderProfileDto(rider, rating);
+  }
+
+  private async fetchRiderRating(riderId: string): Promise<RiderRatingSummary> {
+    const { average, count } = await this.ratingsService.getTargetRatings(
+      RatingTargetType.RIDER,
+      riderId,
+    );
+    return {
+      averageRating: count > 0 ? Math.round(average * 10) / 10 : null,
+      reviewCount: count,
+    };
   }
 
   async updateCurrentRiderProfile(

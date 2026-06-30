@@ -92,6 +92,16 @@ export class NotificationsRestService {
     return notification;
   }
 
+  async markAllCurrentUserNotificationsRead(
+    currentUser: AuthenticatedUserEntity,
+  ): Promise<{ markedCount: number }> {
+    const markedCount = await this.notificationsService.markAllNotificationsRead(
+      currentUser.userId,
+    );
+
+    return { markedCount };
+  }
+
   bulkMarkCurrentUserInventoryAlertsRead(
     currentUser: AuthenticatedUserEntity,
     payload: BulkMarkInventoryAlertsReadDto,

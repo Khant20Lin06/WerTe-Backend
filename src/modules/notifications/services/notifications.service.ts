@@ -333,6 +333,10 @@ export class NotificationsService {
     this.notificationDeliveryService.emitNotificationCreated(entity);
     await this.emitLiveUnreadState(entity.userId);
 
+    void this.notificationsRepository
+      .pruneOldNotifications(entity.userId)
+      .catch(() => undefined);
+
     return entity;
   }
 
@@ -354,6 +358,16 @@ export class NotificationsService {
     await this.emitLiveUnreadState(userId);
 
     return entity;
+  }
+
+  async markAllNotificationsRead(userId: string): Promise<number> {
+    const markedCount = await this.notificationsRepository.markAllRead(userId);
+
+    if (markedCount > 0) {
+      await this.emitLiveUnreadState(userId);
+    }
+
+    return markedCount;
   }
 
   createDeliveryAttempt(payload: {

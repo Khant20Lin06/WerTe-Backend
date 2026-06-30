@@ -219,4 +219,18 @@ export class NotificationsController {
       notificationId,
     );
   }
+
+  @ApiOperation({
+    operationId: 'markAllCurrentUserNotificationsRead',
+    summary: 'Mark every unread notification as read for the authenticated user',
+  })
+  @ApiOkResponse({
+    description: 'Marks all unread notifications as read and returns the count marked.',
+  })
+  @Post('mark-all-read')
+  markAllRead(@CurrentUser() currentUser: AuthenticatedUserEntity) {
+    return this.notificationsRestService.markAllCurrentUserNotificationsRead(
+      currentUser,
+    );
+  }
 }

@@ -6,6 +6,7 @@ exports.canRiderMarkDeliveryPickedUp = canRiderMarkDeliveryPickedUp;
 exports.canRiderMarkDeliveryOnTheWay = canRiderMarkDeliveryOnTheWay;
 exports.canRiderMarkDeliveryDelivered = canRiderMarkDeliveryDelivered;
 exports.canRiderMarkDeliveryFailed = canRiderMarkDeliveryFailed;
+exports.canRiderCancelPrePickup = canRiderCancelPrePickup;
 const client_1 = require("@prisma/client");
 function hasRiderScope(currentUser, delivery) {
     const riderId = currentUser.actorContext.riderId;
@@ -43,5 +44,20 @@ function canRiderMarkDeliveryFailed(currentUser, delivery) {
     return (hasRiderScope(currentUser, delivery) &&
         canFailOrder &&
         canFailDelivery);
+}
+function canRiderCancelPrePickup(currentUser, delivery) {
+    const cancellableOrderStatuses = [
+        client_1.OrderStatus.RIDER_ASSIGNED,
+        client_1.OrderStatus.RIDER_ACCEPTED,
+        client_1.OrderStatus.PREPARING,
+        client_1.OrderStatus.READY,
+    ];
+    const cancellableDeliveryStatuses = [
+        client_1.DeliveryStatus.ASSIGNED,
+        client_1.DeliveryStatus.ACCEPTED,
+    ];
+    return (hasRiderScope(currentUser, delivery) &&
+        cancellableOrderStatuses.includes(delivery.order.status) &&
+        cancellableDeliveryStatuses.includes(delivery.status));
 }
 //# sourceMappingURL=rider-delivery-policy.helper.js.map

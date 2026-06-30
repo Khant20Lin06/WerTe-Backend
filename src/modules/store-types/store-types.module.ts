@@ -6,16 +6,16 @@ import { AdminBranchStoreTypesController } from './controllers/admin-branch-stor
 import { AdminStoreTypesController } from './controllers/admin-store-types.controller';
 import { CustomerStoresController } from './controllers/customer-stores.controller';
 import { MerchantStoreTypesController } from './controllers/merchant-store-types.controller';
+import { DiscoveryCacheModule } from './discovery-cache.module';
 import { StoreTypePolicyService } from './policies/store-type-policy.service';
 import { StoreTypesRepository } from './repositories/store-types.repository';
 import { CustomerStoreDiscoveryService } from './services/customer-store-discovery.service';
-import { DiscoveryCacheService } from './services/discovery-cache.service';
 import { MerchantStoreTypeRequestService } from './services/merchant-store-type-request.service';
 import { StoreTypeCacheService } from './services/store-type-cache.service';
 import { StoreTypeManagementService } from './services/store-type-management.service';
 
 @Module({
-  imports: [AuditModule, MenusModule],
+  imports: [AuditModule, MenusModule, DiscoveryCacheModule],
   controllers: [
     AdminStoreTypesController,
     AdminBranchStoreTypesController,
@@ -25,7 +25,6 @@ import { StoreTypeManagementService } from './services/store-type-management.ser
   providers: [
     StoreTypesRepository,
     StoreTypeCacheService,
-    DiscoveryCacheService,
     StoreTypeManagementService,
     CustomerStoreDiscoveryService,
     MerchantStoreTypeRequestService,
@@ -37,6 +36,7 @@ import { StoreTypeManagementService } from './services/store-type-management.ser
     CustomerStoreDiscoveryService,
     MerchantStoreTypeRequestService,
     StoreTypePolicyService,
+    DiscoveryCacheModule,
   ],
 })
 export class StoreTypesModule {}

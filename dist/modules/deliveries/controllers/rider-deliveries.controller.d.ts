@@ -15,5 +15,6 @@ export declare class RiderDeliveriesController {
     markPickedUp(currentUser: AuthenticatedUserEntity, deliveryId: string): Promise<DeliveryDetailDto>;
     markOnTheWay(currentUser: AuthenticatedUserEntity, deliveryId: string): Promise<DeliveryDetailDto>;
     markDelivered(currentUser: AuthenticatedUserEntity, deliveryId: string): Promise<DeliveryDetailDto>;
+    cancelPrePickup(currentUser: AuthenticatedUserEntity, deliveryId: string, body?: RiderDeliveryActionDto): Promise<void>;
     markFailed(currentUser: AuthenticatedUserEntity, deliveryId: string, body: RiderFailedDeliveryDto): Promise<DeliveryDetailDto>;
 }

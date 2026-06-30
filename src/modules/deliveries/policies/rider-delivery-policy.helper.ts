@@ -90,3 +90,27 @@ export function canRiderMarkDeliveryFailed(
     canFailDelivery
   );
 }
+
+// Pre-pickup cancel: allowed while rider has accepted but order not yet
+// physically in hand (before PICKED_UP status).
+export function canRiderCancelPrePickup(
+  currentUser: AuthenticatedUserEntity,
+  delivery: RiderDeliveryPolicyRecord,
+): boolean {
+  const cancellableOrderStatuses: OrderStatus[] = [
+    OrderStatus.RIDER_ASSIGNED,
+    OrderStatus.RIDER_ACCEPTED,
+    OrderStatus.PREPARING,
+    OrderStatus.READY,
+  ];
+  const cancellableDeliveryStatuses: DeliveryStatus[] = [
+    DeliveryStatus.ASSIGNED,
+    DeliveryStatus.ACCEPTED,
+  ];
+
+  return (
+    hasRiderScope(currentUser, delivery) &&
+    cancellableOrderStatuses.includes(delivery.order.status) &&
+    cancellableDeliveryStatuses.includes(delivery.status)
+  );
+}

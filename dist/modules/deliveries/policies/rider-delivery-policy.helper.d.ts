@@ -13,4 +13,5 @@ export declare function canRiderMarkDeliveryPickedUp(currentUser: AuthenticatedU
 export declare function canRiderMarkDeliveryOnTheWay(currentUser: AuthenticatedUserEntity, delivery: RiderDeliveryPolicyRecord): boolean;
 export declare function canRiderMarkDeliveryDelivered(currentUser: AuthenticatedUserEntity, delivery: RiderDeliveryPolicyRecord): boolean;
 export declare function canRiderMarkDeliveryFailed(currentUser: AuthenticatedUserEntity, delivery: RiderDeliveryPolicyRecord): boolean;
+export declare function canRiderCancelPrePickup(currentUser: AuthenticatedUserEntity, delivery: RiderDeliveryPolicyRecord): boolean;
 export {};

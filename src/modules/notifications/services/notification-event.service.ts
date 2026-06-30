@@ -118,6 +118,30 @@ export class NotificationEventService {
     }
   }
 
+  async publishOrderAutoCancelled(input: {
+    customerUserId: string;
+    orderId: string;
+    orderCode: string;
+    reasonCode: 'merchant_timeout' | 'rider_timeout';
+  }): Promise<void> {
+    const body =
+      input.reasonCode === 'merchant_timeout'
+        ? `Order #${input.orderCode} was cancelled because the merchant did not respond in time.`
+        : `Order #${input.orderCode} was cancelled because no rider could be assigned in time.`;
+
+    const notification = await this.notificationsService.createNotification({
+      userId: input.customerUserId,
+      type: NotificationType.ORDER_STATUS_UPDATED,
+      title: 'Order Cancelled Automatically',
+      body,
+      navigationPath: `/orders/${input.orderId}`,
+      metadataJson: { orderCode: input.orderCode, reasonCode: input.reasonCode },
+      orderId: input.orderId,
+    });
+
+    await this.recordDefaultDeliveries(notification.notificationId);
+  }
+
   async publishMerchantInventoryAlert(input: {
     merchantUserId: string;
     branchId: string;

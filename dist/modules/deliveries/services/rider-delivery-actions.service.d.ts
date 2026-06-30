@@ -24,6 +24,7 @@ export declare class RiderDeliveryActionsService {
     markCurrentRiderPickedUp(currentUser: AuthenticatedUserEntity, input: RiderDeliveryActionInput): Promise<DeliveryDetailEntity>;
     markCurrentRiderOnTheWay(currentUser: AuthenticatedUserEntity, input: RiderDeliveryActionInput): Promise<DeliveryDetailEntity>;
     markCurrentRiderDelivered(currentUser: AuthenticatedUserEntity, input: RiderDeliveryActionInput): Promise<DeliveryDetailEntity>;
+    cancelCurrentRiderDelivery(currentUser: AuthenticatedUserEntity, input: RiderDeliveryActionInput): Promise<void>;
     failCurrentRiderDelivery(currentUser: AuthenticatedUserEntity, input: RiderDeliveryActionInput): Promise<DeliveryDetailEntity>;
     private handleTransition;
     private requireRiderId;

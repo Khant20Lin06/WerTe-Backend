@@ -357,6 +357,41 @@ export class NotificationsRepository {
     });
   }
 
+  async markAllRead(userId: string, readAt = new Date()): Promise<number> {
+    const result = await this.prisma.notification.updateMany({
+      where: {
+        userId,
+        readAt: null,
+      },
+      data: {
+        readAt,
+      },
+    });
+
+    return result.count;
+  }
+
+  async pruneOldNotifications(userId: string, keep = 20): Promise<number> {
+    const stale = await this.prisma.notification.findMany({
+      where: { userId },
+      select: { id: true },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      skip: keep,
+    });
+
+    if (stale.length === 0) {
+      return 0;
+    }
+
+    const result = await this.prisma.notification.deleteMany({
+      where: {
+        id: { in: stale.map((n) => n.id) },
+      },
+    });
+
+    return result.count;
+  }
+
   createDeliveryAttempt(payload: {
     notificationId: string;
     channel: NotificationChannel;

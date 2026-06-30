@@ -1,5 +1,6 @@
 x-backend-env: &backend-env
   NODE_ENV: development
+  TZ: Asia/Yangon
   APP_HOST: 0.0.0.0
   APP_PORT: 3000
   APP_PREFIX: api/v1
@@ -26,6 +27,7 @@ services:
     image: postgres:16
     restart: unless-stopped
     environment:
+      TZ: Asia/Yangon
       POSTGRES_DB: food_delivery
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -55,28 +57,26 @@ services:
       start_period: 5s
 
   pgbouncer:
-    image: bitnami/pgbouncer:1.23.1
+    image: edoburu/pgbouncer:latest
     restart: unless-stopped
     environment:
-      # Connect to real Postgres
-      POSTGRESQL_HOST: postgres
-      POSTGRESQL_PORT: '5432'
-      POSTGRESQL_DATABASE: food_delivery
-      POSTGRESQL_USERNAME: postgres
-      POSTGRESQL_PASSWORD: postgres
-      # Transaction mode — required for Prisma (?pgbouncer=true in DATABASE_URL)
-      PGBOUNCER_POOL_MODE: transaction
-      # 25 server connections to Postgres shared across all app clients
-      PGBOUNCER_DEFAULT_POOL_SIZE: '25'
-      PGBOUNCER_MIN_POOL_SIZE: '5'
-      # Drop idle client connections after 60s
-      PGBOUNCER_CLIENT_IDLE_TIMEOUT: '60'
-      # Drop idle server connections after 300s
-      PGBOUNCER_SERVER_IDLE_TIMEOUT: '300'
-      # Reject clients when all 25 server slots are busy (fail fast)
-      PGBOUNCER_RESERVE_POOL_SIZE: '5'
-      PGBOUNCER_RESERVE_POOL_TIMEOUT: '3'
-      PGBOUNCER_AUTH_TYPE: md5
+      TZ: Asia/Yangon
+      DB_HOST: postgres
+      DB_PORT: '5432'
+      DB_NAME: food_delivery
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      POOL_MODE: transaction
+      DEFAULT_POOL_SIZE: '25'
+      MIN_POOL_SIZE: '5'
+      RESERVE_POOL_SIZE: '5'
+      RESERVE_POOL_TIMEOUT: '3'
+      CLIENT_IDLE_TIMEOUT: '0'
+      SERVER_IDLE_TIMEOUT: '300'
+      AUTH_TYPE: scram-sha-256
+      LISTEN_PORT: '6432'
+      LISTEN_ADDR: '0.0.0.0'
+      ADMIN_USERS: postgres
     ports:
       - '6432:6432'
     depends_on:

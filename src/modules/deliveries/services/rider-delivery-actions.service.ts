@@ -22,6 +22,7 @@ import {
 } from '../entities/delivery-detail.entity';
 import {
   canRiderAcceptDeliveryRequest,
+  canRiderCancelPrePickup,
   canRiderMarkDeliveryDelivered,
   canRiderMarkDeliveryFailed,
   canRiderMarkDeliveryOnTheWay,
@@ -68,11 +69,19 @@ export class RiderDeliveryActionsService {
     private readonly queueService: QueueService,
   ) {}
 
-  acceptCurrentRiderDeliveryRequest(
+  async acceptCurrentRiderDeliveryRequest(
     currentUser: AuthenticatedUserEntity,
     input: RiderDeliveryActionInput,
   ): Promise<DeliveryDetailEntity> {
-    return this.handleTransition(currentUser, input, {
+    const riderId = this.requireRiderId(currentUser);
+
+    // Resolve the delivery to get the orderId before transitioning.
+    const delivery = await this.deliveriesRepository.findRiderDeliveryById(
+      input.deliveryId,
+      riderId,
+    );
+
+    const result = await this.handleTransition(currentUser, input, {
       targetOrderStatus: OrderStatus.RIDER_ACCEPTED,
       targetDeliveryStatus: DeliveryStatus.ACCEPTED,
       defaultReasonCode: 'rider_accepted_assignment',
@@ -84,12 +93,26 @@ export class RiderDeliveryActionsService {
         acceptedAt: now,
       }),
     });
+
+    // Mark dispatch attempt as accepted so the 15-min timeout becomes a no-op.
+    if (delivery !== null) {
+      await this.resolveDispatchAttempt(delivery.orderId, riderId, 'accepted');
+    }
+
+    return result;
   }
 
   async rejectCurrentRiderDeliveryRequest(
     currentUser: AuthenticatedUserEntity,
     input: RiderDeliveryActionInput,
   ): Promise<DeliveryDetailEntity> {
+    const riderId = this.requireRiderId(currentUser);
+
+    const delivery = await this.deliveriesRepository.findRiderDeliveryById(
+      input.deliveryId,
+      riderId,
+    );
+
     const result = await this.handleTransition(currentUser, input, {
       targetOrderStatus: OrderStatus.MERCHANT_ACCEPTED,
       targetDeliveryStatus: DeliveryStatus.PENDING_ASSIGNMENT,
@@ -113,7 +136,13 @@ export class RiderDeliveryActionsService {
       }),
     });
 
-    // Re-dispatch after rider rejection so another rider can be assigned.
+    // Mark dispatch attempt as rejected so the count is accurate before re-dispatch.
+    if (delivery !== null) {
+      await this.resolveDispatchAttempt(delivery.orderId, riderId, 'rejected');
+    }
+
+    // Re-dispatch so another rider can be assigned (the dispatch job checks the attempt count
+    // and will cancel the order if MAX_FAILED_ATTEMPTS is exceeded).
     await this.queueService.add(
       QueueNames.dispatch,
       QueueJobNames.dispatch.autoDispatchOrder,
@@ -176,6 +205,88 @@ export class RiderDeliveryActionsService {
         deliveredAt: now,
       }),
     });
+  }
+
+  async cancelCurrentRiderDelivery(
+    currentUser: AuthenticatedUserEntity,
+    input: RiderDeliveryActionInput,
+  ): Promise<void> {
+    const riderId = this.requireRiderId(currentUser);
+    const delivery = await this.deliveriesRepository.findRiderDeliveryById(
+      input.deliveryId,
+      riderId,
+    );
+
+    if (delivery === null) {
+      throw new AppException('Delivery was not found.', HttpStatus.NOT_FOUND, {
+        code: ErrorCodes.notFound,
+      });
+    }
+
+    if (!canRiderCancelPrePickup(currentUser, delivery)) {
+      throw new AppException(
+        'This delivery can no longer be cancelled.',
+        HttpStatus.CONFLICT,
+        { code: ErrorCodes.conflict },
+      );
+    }
+
+    const reasonCode =
+      this.normalizeOptionalString(input.reasonCode) ?? 'rider_cancelled_pre_pickup';
+    const note = this.normalizeOptionalString(input.note);
+    const now = new Date();
+
+    await this.prisma.runInTransaction(async (tx) => {
+      await this.deliveriesRepository.updateById(
+        delivery.id,
+        {
+          rider: { disconnect: true },
+          status: DeliveryStatus.PENDING_ASSIGNMENT,
+          etaMinutes: null,
+          acceptedAt: null,
+          pickedUpAt: null,
+          onTheWayAt: null,
+          deliveredAt: null,
+          failedAt: null,
+          cancelledAt: now,
+          failureReasonCode: reasonCode,
+          failureNote: note,
+        },
+        tx,
+      );
+
+      await this.ordersRepository.updateOrderStatus(
+        delivery.orderId,
+        {
+          status: OrderStatus.MERCHANT_ACCEPTED,
+          fromStatus: delivery.order.status,
+          changedByUserId: currentUser.userId,
+          reasonCode,
+          note,
+        },
+        tx,
+      );
+    });
+
+    await this.systemMessageService.publishOrderEvent(currentUser, {
+      orderId: delivery.orderId,
+      code: 'ORDER_CANCELLED' as SystemMessageCode,
+      metadata: {
+        actorUserId: currentUser.userId,
+        deliveryId: delivery.id,
+        reasonCode,
+        note,
+      },
+      templateVariables: { reasonCode, note },
+    });
+
+    // Re-dispatch so another rider can be assigned.
+    await this.queueService.add(
+      QueueNames.dispatch,
+      QueueJobNames.dispatch.autoDispatchOrder,
+      { orderId: delivery.orderId },
+      { delayMs: 500 },
+    );
   }
 
   failCurrentRiderDelivery(
@@ -307,6 +418,27 @@ export class RiderDeliveryActionsService {
     });
 
     return this.deliveryQueryService.buildDeliveryDetail(updatedDelivery);
+  }
+
+  private async resolveDispatchAttempt(
+    orderId: string,
+    riderId: string,
+    outcomeCode: 'accepted' | 'rejected',
+  ): Promise<void> {
+    try {
+      const attempt = await this.prisma.orderDispatchAttempt.findFirst({
+        where: { orderId, riderId, outcomeCode: 'pending' },
+        orderBy: { attemptedAt: 'desc' },
+      });
+      if (attempt !== null) {
+        await this.prisma.orderDispatchAttempt.update({
+          where: { id: attempt.id },
+          data: { outcomeCode, resolvedAt: new Date() },
+        });
+      }
+    } catch {
+      // Non-critical: dispatch attempt tracking should not fail the primary action.
+    }
   }
 
   private requireRiderId(currentUser: AuthenticatedUserEntity): string {

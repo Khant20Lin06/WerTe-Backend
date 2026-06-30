@@ -268,6 +268,13 @@ export class MerchantOrderHandlingService {
           { orderId: input.orderId },
           { delayMs: 500 },
         );
+        // Cancel if no rider is assigned within 30 minutes of acceptance.
+        await this.queueService.add(
+          QueueNames.orderTimeouts,
+          QueueJobNames.orderTimeouts.riderTimeout,
+          { orderId: input.orderId },
+          { delayMs: 30 * 60 * 1000 },
+        );
       }
     }
 

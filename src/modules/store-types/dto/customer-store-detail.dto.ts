@@ -191,7 +191,7 @@ export function toCustomerStoreDetailDto(
     visibleItemCount,
     averageRating: ratingAggregate?.averageRating ?? null,
     reviewCount: ratingAggregate?.reviewCount ?? 0,
-    isOpenNow: computeIsOpenNow(operatingHours),
+    isOpenNow: computeIsOpenNow(operatingHours, branch.status),
     operatingHours,
   };
 }

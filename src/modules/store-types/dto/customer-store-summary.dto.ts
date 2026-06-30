@@ -170,21 +170,36 @@ export function toCustomerStoreSummaryDto(
     approvedStoreTypes,
     averageRating: options?.averageRating ?? null,
     reviewCount: options?.reviewCount ?? 0,
-    isOpenNow: computeIsOpenNow(operatingHours),
+    isOpenNow: computeIsOpenNow(operatingHours, branch.status),
     operatingHours,
   };
 }
 
 const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 
-export function computeIsOpenNow(hours: CustomerStoreOperatingHoursDto | null): boolean {
+// Myanmar Standard Time is UTC+6:30 (no DST).
+const MST_OFFSET_MINUTES = 6 * 60 + 30;
+
+function nowInMyanmar(): Date {
+  const utcMs = Date.now() + MST_OFFSET_MINUTES * 60_000;
+  return new Date(utcMs);
+}
+
+export function computeIsOpenNow(
+  hours: CustomerStoreOperatingHoursDto | null,
+  branchStatus?: string,
+): boolean {
+  // A branch toggled INACTIVE by the merchant is always closed.
+  if (branchStatus !== undefined && branchStatus !== 'ACTIVE') return false;
+  // No operating hours configured → treat as always open (merchant hasn't
+  // restricted hours yet).
   if (!hours) return true;
-  const now = new Date();
-  const dayKey = DAY_KEYS[now.getDay()];
+  const now = nowInMyanmar();
+  const dayKey = DAY_KEYS[now.getUTCDay()];
   const day = hours[dayKey];
   if (!day || !day.open) return false;
   if (!day.openTime || !day.closeTime) return true;
   const pad = (n: number) => String(n).padStart(2, '0');
-  const current = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  const current = `${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}`;
   return current >= day.openTime && current <= day.closeTime;
 }

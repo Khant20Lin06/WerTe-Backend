@@ -3,6 +3,11 @@ import { RiderStatus, UserStatus } from '@prisma/client';
 
 import { RiderOwnershipRecord } from '../entities/rider-ownership.entity';
 
+export type RiderRatingSummary = {
+  averageRating: number | null;
+  reviewCount: number;
+};
+
 export class RiderProfileDto {
   @ApiProperty({
     description: 'Rider identifier.',
@@ -65,9 +70,25 @@ export class RiderProfileDto {
     example: false,
   })
   isOnline!: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Average customer rating score for the rider (1-5). Null when no ratings exist.',
+    example: 4.8,
+    nullable: true,
+  })
+  averageRating!: number | null;
+
+  @ApiProperty({
+    description: 'Total number of ratings submitted for the rider.',
+    example: 23,
+  })
+  reviewCount!: number;
 }
 
-export function toRiderProfileDto(rider: RiderOwnershipRecord): RiderProfileDto {
+export function toRiderProfileDto(
+  rider: RiderOwnershipRecord,
+  rating?: RiderRatingSummary,
+): RiderProfileDto {
   return {
     id: rider.id,
     phone: rider.user.phone,
@@ -79,5 +100,7 @@ export function toRiderProfileDto(rider: RiderOwnershipRecord): RiderProfileDto 
     createdAt: rider.createdAt.toISOString(),
     updatedAt: rider.updatedAt.toISOString(),
     isOnline: rider.availability?.isOnline ?? false,
+    averageRating: rating?.averageRating ?? null,
+    reviewCount: rating?.reviewCount ?? 0,
   };
 }

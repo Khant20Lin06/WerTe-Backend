@@ -84,6 +84,7 @@ export class PushNotificationJob implements OnModuleInit {
         userId: notification.user.id,
         title: notification.title,
         body: notification.body,
+        type: notification.type,
         navigationPath: notification.navigationPath ?? null,
         deviceTokens,
       });

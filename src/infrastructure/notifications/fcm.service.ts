@@ -58,6 +58,7 @@ export class FcmService implements OnModuleInit, OnModuleDestroy {
     userId: string;
     title: string;
     body: string;
+    type: string;
     navigationPath: string | null;
     deviceTokens: string[];
   }): Promise<{
@@ -81,6 +82,7 @@ export class FcmService implements OnModuleInit, OnModuleDestroy {
     userId: string;
     title: string;
     body: string;
+    type: string;
     navigationPath: string | null;
     deviceTokens: string[];
   }): Promise<{
@@ -92,6 +94,7 @@ export class FcmService implements OnModuleInit, OnModuleDestroy {
 
     const data: Record<string, string> = {
       notificationId: payload.notificationId,
+      type: payload.type,
     };
     if (payload.navigationPath) {
       data['navigationPath'] = payload.navigationPath;
@@ -153,6 +156,7 @@ export class FcmService implements OnModuleInit, OnModuleDestroy {
     userId: string;
     title: string;
     body: string;
+    type: string;
     navigationPath: string | null;
     deviceTokens: string[];
   }): {

@@ -1,5 +1,5 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { Prisma, ZoneStatus } from '@prisma/client';
+import { Prisma, RatingTargetType, ZoneStatus } from '@prisma/client';
 
 import { ErrorCodes } from '../../../common/constants/error-codes';
 import { AppException } from '../../../common/exceptions/app.exception';
@@ -7,8 +7,9 @@ import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { AuthenticatedUserEntity } from '../../auth/entities/authenticated-user.entity';
 import { MerchantOwnershipRecord } from '../../merchants/entities/merchant-ownership.entity';
 import { MerchantAccountService } from '../../merchants/services/merchant-account.service';
+import { DiscoveryCacheService } from '../../store-types/services/discovery-cache.service';
 import { ZonesService } from '../../zones/services/zones.service';
-import { BranchDto, toBranchDto } from '../dto/branch.dto';
+import { BranchDto, BranchRatingSummary, toBranchDto } from '../dto/branch.dto';
 import { CreateBranchDto } from '../dto/create-branch.dto';
 import { UpdateBranchDto } from '../dto/update-branch.dto';
 import { BranchOwnershipRecord } from '../entities/branch-ownership.entity';
@@ -25,6 +26,7 @@ export class MerchantBranchesService {
     private readonly branchesService: BranchesService,
     private readonly branchPolicyService: BranchPolicyService,
     private readonly zonesService: ZonesService,
+    private readonly discoveryCache: DiscoveryCacheService,
   ) {}
 
   async listCurrentMerchantBranches(
@@ -32,8 +34,13 @@ export class MerchantBranchesService {
   ): Promise<BranchDto[]> {
     const merchant = await this.resolveCurrentMerchant(currentUser);
     const branches = await this.branchesService.listByMerchantId(merchant.id);
+    const ratingMap = await this.fetchBranchRatingMap(
+      branches.map((branch) => branch.id),
+    );
 
-    return branches.map((branch) => toBranchDto(branch));
+    return branches.map((branch) =>
+      toBranchDto(branch, ratingMap.get(branch.id)),
+    );
   }
 
   async getCurrentMerchantBranch(
@@ -41,8 +48,36 @@ export class MerchantBranchesService {
     branchId: string,
   ): Promise<BranchDto> {
     const branch = await this.resolveOwnedBranch(currentUser, branchId);
+    const rating = await this.fetchSingleBranchRating(branch.id);
 
-    return toBranchDto(branch);
+    return toBranchDto(branch, rating);
+  }
+
+  private async fetchBranchRatingMap(
+    branchIds: string[],
+  ): Promise<Map<string, BranchRatingSummary>> {
+    if (branchIds.length === 0) return new Map();
+    const rows = await this.prisma.rating.groupBy({
+      by: ['targetId'],
+      where: { targetType: RatingTargetType.BRANCH, targetId: { in: branchIds } },
+      _avg: { score: true },
+      _count: { score: true },
+    });
+    const map = new Map<string, BranchRatingSummary>();
+    for (const row of rows) {
+      map.set(row.targetId, {
+        averageRating: row._avg.score !== null ? Math.round(row._avg.score * 10) / 10 : null,
+        reviewCount: row._count.score,
+      });
+    }
+    return map;
+  }
+
+  private async fetchSingleBranchRating(
+    branchId: string,
+  ): Promise<BranchRatingSummary> {
+    const map = await this.fetchBranchRatingMap([branchId]);
+    return map.get(branchId) ?? { averageRating: null, reviewCount: 0 };
   }
 
   async createCurrentMerchantBranch(
@@ -161,7 +196,10 @@ export class MerchantBranchesService {
       );
     }
 
-    await this.branchesService.invalidateCache(updatedBranch.id, updatedBranch.merchant.id);
+    await Promise.all([
+      this.branchesService.invalidateCache(updatedBranch.id, updatedBranch.merchant.id),
+      this.discoveryCache.invalidateAll(),
+    ]);
 
     return toBranchDto(updatedBranch);
   }

@@ -14,6 +14,7 @@ export const QueueJobNames = {
   },
   orderTimeouts: {
     startTimeout: 'start-timeout',
+    riderTimeout: 'rider-timeout',
   },
   messagingFallback: {
     pushFallback: 'message-push-fallback',
@@ -29,6 +30,7 @@ export const QueueJobNames = {
   dispatch: {
     autoDispatchOrder: 'auto-dispatch-order',
     autoDispatchPendingForRider: 'auto-dispatch-pending-for-rider',
+    riderDispatchTimeout: 'rider-dispatch-timeout',
   },
 } as const;
 

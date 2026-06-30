@@ -69,6 +69,13 @@ let RiderDeliveriesController = class RiderDeliveriesController {
         });
         return (0, delivery_detail_dto_1.toDeliveryDetailDto)(delivery);
     }
+    async cancelPrePickup(currentUser, deliveryId, body) {
+        await this.riderDeliveryActionsService.cancelCurrentRiderDelivery(currentUser, {
+            deliveryId,
+            reasonCode: body?.reasonCode,
+            note: body?.note,
+        });
+    }
     async markFailed(currentUser, deliveryId, body) {
         const delivery = await this.riderDeliveryActionsService.failCurrentRiderDelivery(currentUser, {
             deliveryId,
@@ -237,6 +244,26 @@ __decorate([
         description: 'Marks the delivery as failed and returns the updated delivery snapshot.',
         type: delivery_detail_dto_1.DeliveryDetailDto,
     }),
+    (0, swagger_1.ApiOperation)({
+        operationId: 'cancelRiderDeliveryPrePickup',
+        summary: 'Cancel an accepted delivery before pickup',
+    }),
+    (0, swagger_1.ApiParam)({
+        name: 'deliveryId',
+        description: 'Accepted delivery identifier to cancel.',
+        example: 'delivery_1',
+    }),
+    (0, swagger_1.ApiBody)({ type: rider_delivery_action_dto_1.RiderDeliveryActionDto, required: false }),
+    (0, common_1.HttpCode)(common_1.HttpStatus.NO_CONTENT),
+    (0, common_1.Post)('deliveries/:deliveryId/cancel'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Param)('deliveryId')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [authenticated_user_entity_1.AuthenticatedUserEntity, String, rider_delivery_action_dto_1.RiderDeliveryActionDto]),
+    __metadata("design:returntype", Promise)
+], RiderDeliveriesController.prototype, "cancelPrePickup", null);
+__decorate([
     (0, common_1.Post)('deliveries/:deliveryId/failed'),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('deliveryId')),

@@ -35,10 +35,13 @@ export class OrderQueryService {
 
   async listCustomerOrders(
     currentUser: AuthenticatedUserEntity,
+    options: { limit?: number; page?: number } = {},
   ): Promise<OrderSummaryEntity[]> {
     const customerProfileId = this.requireCustomerProfileId(currentUser);
-    const orders =
-      await this.ordersRepository.findCustomerOrderSummaries(customerProfileId);
+    const orders = await this.ordersRepository.findCustomerOrderSummaries(
+      customerProfileId,
+      options,
+    );
 
     return orders.map((order) =>
       this.attachAvailableActions(currentUser, this.buildOrderSummary(order)),

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import {
   ApiBearerAuth,
@@ -43,8 +43,15 @@ export class CustomerOrdersController {
     isArray: true,
   })
   @Get()
-  async list(@CurrentUser() currentUser: AuthenticatedUserEntity) {
-    const orders = await this.orderQueryService.listCustomerOrders(currentUser);
+  async list(
+    @CurrentUser() currentUser: AuthenticatedUserEntity,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const orders = await this.orderQueryService.listCustomerOrders(currentUser, {
+      page: page !== undefined ? Math.max(1, parseInt(page, 10) || 1) : 1,
+      limit: limit !== undefined ? Math.min(50, Math.max(1, parseInt(limit, 10) || 20)) : 20,
+    });
 
     return orders.map((order) => toOrderSummaryDto(order));
   }

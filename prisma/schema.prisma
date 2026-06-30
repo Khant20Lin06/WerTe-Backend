@@ -357,11 +357,11 @@ model User {
   auditActorLogs           AuditLog[]                @relation("AuditActorUser")
   auditTargetLogs          AuditLog[]                @relation("AuditTargetUser")
   refundsCreated           Refund[]                  @relation("RefundCreatedByUser")
-  branchStoreTypeRequests    BranchStoreType[]           @relation("BranchStoreTypeRequestedBy")
-  branchStoreTypeApprovals   BranchStoreType[]           @relation("BranchStoreTypeApprovedBy")
-  supportTicketsAsCustomer   SupportTicket[]             @relation("SupportTicketCustomer")
-  supportTicketsAsAgent      SupportTicket[]             @relation("SupportTicketAgent")
-  supportTicketMessages      SupportTicketMessage[]      @relation("SupportTicketMessageSender")
+  branchStoreTypeRequests  BranchStoreType[]         @relation("BranchStoreTypeRequestedBy")
+  branchStoreTypeApprovals BranchStoreType[]         @relation("BranchStoreTypeApprovedBy")
+  supportTicketsAsCustomer SupportTicket[]           @relation("SupportTicketCustomer")
+  supportTicketsAsAgent    SupportTicket[]           @relation("SupportTicketAgent")
+  supportTicketMessages    SupportTicketMessage[]    @relation("SupportTicketMessageSender")
 }
 
 model UserSession {
@@ -458,17 +458,17 @@ model StoreType {
 }
 
 model Merchant {
-  id                 String         @id @default(cuid())
-  userId             String         @unique
+  id                 String          @id @default(cuid())
+  userId             String          @unique
   name               String
   supportPhone       String?
-  storeType          String         @default("restaurant")
+  storeType          String          @default("restaurant")
   primaryStoreTypeId String?
-  status             MerchantStatus @default(PENDING)
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
-  user               User           @relation(fields: [userId], references: [id])
-  primaryStoreType   StoreType?     @relation("MerchantPrimaryStoreType", fields: [primaryStoreTypeId], references: [id], onDelete: SetNull)
+  status             MerchantStatus  @default(PENDING)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  user               User            @relation(fields: [userId], references: [id])
+  primaryStoreType   StoreType?      @relation("MerchantPrimaryStoreType", fields: [primaryStoreTypeId], references: [id], onDelete: SetNull)
   branches           Branch[]
   staffMembers       MerchantStaff[]
 
@@ -478,7 +478,7 @@ model Merchant {
 }
 
 model Branch {
-  id                 String            @id @default(cuid())
+  id                 String                  @id @default(cuid())
   merchantId         String
   name               String
   contactPhone       String?
@@ -486,14 +486,14 @@ model Branch {
   township           String
   latitude           Decimal?
   longitude          Decimal?
-  storeType          String            @default("restaurant")
+  storeType          String                  @default("restaurant")
   primaryStoreTypeId String?
-  status             BranchStatus      @default(INACTIVE)
+  status             BranchStatus            @default(INACTIVE)
   operatingHours     Json?
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
-  merchant           Merchant          @relation(fields: [merchantId], references: [id])
-  primaryStoreType   StoreType?        @relation("BranchPrimaryStoreType", fields: [primaryStoreTypeId], references: [id], onDelete: SetNull)
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  merchant           Merchant                @relation(fields: [merchantId], references: [id])
+  primaryStoreType   StoreType?              @relation("BranchPrimaryStoreType", fields: [primaryStoreTypeId], references: [id], onDelete: SetNull)
   storeTypes         BranchStoreType[]
   branchZones        BranchZone[]
   menuCategories     MenuCategory[]
@@ -938,6 +938,7 @@ model Order {
   paymentProviderEvents         PaymentProviderEvent[]
   refundProviderEvents          RefundProviderEvent[]
   delivery                      Delivery?
+  dispatchAttempts              OrderDispatchAttempt[]
   conversations                 Conversation[]
   notifications                 Notification[]
   auditLogs                     AuditLog[]
@@ -1162,6 +1163,22 @@ model Delivery {
 
   @@index([riderId, status])
   @@index([status, updatedAt])
+}
+
+// Tracks each per-rider dispatch attempt for an order.
+// Used by the rider re-dispatch logic to count failed attempts and skip tried riders.
+model OrderDispatchAttempt {
+  id           String   @id @default(cuid())
+  orderId      String
+  riderId      String
+  // outcome: 'pending' while awaiting, 'timeout' if rider did not respond, 'rejected' if rider explicitly rejected
+  outcomeCode  String   @default("pending")
+  attemptedAt  DateTime @default(now())
+  resolvedAt   DateTime?
+  order        Order    @relation(fields: [orderId], references: [id])
+
+  @@index([orderId, attemptedAt])
+  @@index([orderId, outcomeCode])
 }
 
 model Conversation {
@@ -1484,24 +1501,24 @@ enum SupportTicketCategory {
 }
 
 model SupportTicket {
-  id               String                @id @default(cuid())
-  ticketNumber     String                @unique
-  customerId       String
-  assignedAgentId  String?
-  orderId          String?
-  category         SupportTicketCategory @default(OTHER)
-  priority         SupportTicketPriority @default(NORMAL)
-  status           SupportTicketStatus   @default(OPEN)
-  subject          String
-  resolvedAt       DateTime?
-  closedAt         DateTime?
-  createdAt        DateTime              @default(now())
-  updatedAt        DateTime              @updatedAt
-  customer         User                  @relation("SupportTicketCustomer", fields: [customerId], references: [id])
-  assignedAgent    User?                 @relation("SupportTicketAgent", fields: [assignedAgentId], references: [id], onDelete: SetNull)
-  order            Order?                @relation(fields: [orderId], references: [id], onDelete: SetNull)
-  messages         SupportTicketMessage[]
-  statusHistory    SupportTicketStatusHistory[]
+  id              String                       @id @default(cuid())
+  ticketNumber    String                       @unique
+  customerId      String
+  assignedAgentId String?
+  orderId         String?
+  category        SupportTicketCategory        @default(OTHER)
+  priority        SupportTicketPriority        @default(NORMAL)
+  status          SupportTicketStatus          @default(OPEN)
+  subject         String
+  resolvedAt      DateTime?
+  closedAt        DateTime?
+  createdAt       DateTime                     @default(now())
+  updatedAt       DateTime                     @updatedAt
+  customer        User                         @relation("SupportTicketCustomer", fields: [customerId], references: [id])
+  assignedAgent   User?                        @relation("SupportTicketAgent", fields: [assignedAgentId], references: [id], onDelete: SetNull)
+  order           Order?                       @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  messages        SupportTicketMessage[]
+  statusHistory   SupportTicketStatusHistory[]
 
   @@index([customerId, status])
   @@index([assignedAgentId, status])
@@ -1510,44 +1527,44 @@ model SupportTicket {
 }
 
 model SupportTicketMessage {
-  id             String        @id @default(cuid())
-  ticketId       String
-  senderUserId   String
-  body           String
-  isInternal     Boolean       @default(false)
-  storageKey     String?
-  createdAt      DateTime      @default(now())
-  ticket         SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  sender         User          @relation("SupportTicketMessageSender", fields: [senderUserId], references: [id])
+  id           String        @id @default(cuid())
+  ticketId     String
+  senderUserId String
+  body         String
+  isInternal   Boolean       @default(false)
+  storageKey   String?
+  createdAt    DateTime      @default(now())
+  ticket       SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender       User          @relation("SupportTicketMessageSender", fields: [senderUserId], references: [id])
 
   @@index([ticketId, createdAt])
   @@index([senderUserId])
 }
 
 model SupportTicketStatusHistory {
-  id              String              @id @default(cuid())
+  id              String               @id @default(cuid())
   ticketId        String
   fromStatus      SupportTicketStatus?
   toStatus        SupportTicketStatus
   changedByUserId String?
   note            String?
-  createdAt       DateTime            @default(now())
-  ticket          SupportTicket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  createdAt       DateTime             @default(now())
+  ticket          SupportTicket        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
   @@index([ticketId, createdAt])
 }
 
 model MerchantStaff {
-  id          String            @id @default(cuid())
-  userId      String            @unique
-  merchantId  String
-  role        MerchantStaffRole @default(CASHIER)
-  status      StaffStatus       @default(ACTIVE)
-  displayName String
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  user        User              @relation(fields: [userId], references: [id])
-  merchant    Merchant          @relation(fields: [merchantId], references: [id])
+  id                String                  @id @default(cuid())
+  userId            String                  @unique
+  merchantId        String
+  role              MerchantStaffRole       @default(CASHIER)
+  status            StaffStatus             @default(ACTIVE)
+  displayName       String
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  user              User                    @relation(fields: [userId], references: [id])
+  merchant          Merchant                @relation(fields: [merchantId], references: [id])
   branchAssignments BranchStaffAssignment[]
 
   @@index([merchantId])
@@ -1558,7 +1575,7 @@ model MerchantStaff {
 model BranchStaffAssignment {
   staffId   String
   branchId  String
-  createdAt DateTime @default(now())
+  createdAt DateTime      @default(now())
   staff     MerchantStaff @relation(fields: [staffId], references: [id], onDelete: Cascade)
   branch    Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
@@ -1567,16 +1584,16 @@ model BranchStaffAssignment {
 }
 
 model Rating {
-  id               String           @id @default(cuid())
-  orderId          String
-  raterType        RaterType
-  raterId          String
-  targetType       RatingTargetType
-  targetId         String
-  score            Int
-  comment          String?
-  createdAt        DateTime         @default(now())
-  order            Order            @relation(fields: [orderId], references: [id])
+  id         String           @id @default(cuid())
+  orderId    String
+  raterType  RaterType
+  raterId    String
+  targetType RatingTargetType
+  targetId   String
+  score      Int
+  comment    String?
+  createdAt  DateTime         @default(now())
+  order      Order            @relation(fields: [orderId], references: [id])
 
   @@unique([orderId, raterType, targetType])
   @@index([targetType, targetId])
@@ -1585,14 +1602,14 @@ model Rating {
 }
 
 model PlatformPaymentMethod {
-  id           String        @id @default(cuid())
-  method       PaymentMethod @unique
-  displayName  String
-  description  String?
-  isEnabled    Boolean       @default(false)
-  sortOrder    Int           @default(0)
+  id          String        @id @default(cuid())
+  method      PaymentMethod @unique
+  displayName String
+  description String?
+  isEnabled   Boolean       @default(false)
+  sortOrder   Int           @default(0)
   // For BANK_TRANSFER — shown to customer after placing order
-  bankDetails  Json?
-  updatedAt    DateTime      @updatedAt
-  createdAt    DateTime      @default(now())
+  bankDetails Json?
+  updatedAt   DateTime      @updatedAt
+  createdAt   DateTime      @default(now())
 }

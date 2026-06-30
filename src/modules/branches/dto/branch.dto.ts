@@ -3,6 +3,11 @@ import { BranchStatus, ZoneStatus } from '@prisma/client';
 
 import { BranchOwnershipRecord } from '../entities/branch-ownership.entity';
 
+export type BranchRatingSummary = {
+  averageRating: number | null;
+  reviewCount: number;
+};
+
 export class BranchZoneDto {
   @ApiProperty({
     description: 'Zone identifier assigned to the branch.',
@@ -123,9 +128,25 @@ export class BranchDto {
     example: '2026-04-19T08:00:00.000Z',
   })
   updatedAt!: string;
+
+  @ApiPropertyOptional({
+    description: 'Average customer rating score for the branch (1-5). Null when no ratings exist.',
+    example: 4.5,
+    nullable: true,
+  })
+  averageRating!: number | null;
+
+  @ApiProperty({
+    description: 'Total number of ratings submitted for the branch.',
+    example: 12,
+  })
+  reviewCount!: number;
 }
 
-export function toBranchDto(branch: BranchOwnershipRecord): BranchDto {
+export function toBranchDto(
+  branch: BranchOwnershipRecord,
+  rating?: BranchRatingSummary,
+): BranchDto {
   return {
     id: branch.id,
     merchantId: branch.merchant.id,
@@ -149,5 +170,7 @@ export function toBranchDto(branch: BranchOwnershipRecord): BranchDto {
     })),
     createdAt: new Date(branch.createdAt).toISOString(),
     updatedAt: new Date(branch.updatedAt).toISOString(),
+    averageRating: rating?.averageRating ?? null,
+    reviewCount: rating?.reviewCount ?? 0,
   };
 }
