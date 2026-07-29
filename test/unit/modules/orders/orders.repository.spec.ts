@@ -79,7 +79,9 @@ describe('OrdersRepository', () => {
     const { prisma, repository } = makeRepository();
     (prisma.order.findMany as jest.Mock).mockResolvedValue([]);
 
-    await repository.findRiderOrderSummaries('rider_1', 5);
+    const result = await repository.findRiderOrderSummaries('rider_1', {
+      limit: 5,
+    });
 
     expect(prisma.order.findMany).toHaveBeenCalledWith({
       where: {
@@ -91,8 +93,11 @@ describe('OrdersRepository', () => {
       },
       include: orderSummaryInclude,
       orderBy: [{ placedAt: 'desc' }, { id: 'desc' }],
-      take: 5,
+      cursor: undefined,
+      skip: 0,
+      take: 6,
     });
+    expect(result).toEqual({ records: [], nextCursor: null, hasMore: false });
   });
 
   it('loads order details with item snapshots and status history', async () => {

@@ -10,6 +10,7 @@ import { BranchCatalogRecord } from '../../../../src/modules/menus/entities/bran
 import { CustomerCatalogReadService } from '../../../../src/modules/menus/services/customer-catalog-read.service';
 import { MenuCacheService } from '../../../../src/modules/menus/services/menu-cache.service';
 import { MenusService } from '../../../../src/modules/menus/services/menus.service';
+import { RatingsService } from '../../../../src/modules/ratings/ratings.service';
 
 describe('CustomerCatalogReadService', () => {
   const makeCatalog = (
@@ -97,12 +98,17 @@ describe('CustomerCatalogReadService', () => {
       invalidate: jest.fn().mockResolvedValue(undefined),
     }) as unknown as MenuCacheService;
 
+  const makeRatingsService = () =>
+    ({
+      getMenuItemRatings: jest.fn().mockResolvedValue(new Map()),
+    }) as unknown as RatingsService;
+
   it('returns null when no branch catalog exists', async () => {
     const menusService = {
       findBranchCatalogByBranchId: jest.fn().mockResolvedValue(null),
       buildBranchCatalog: jest.fn(),
     } as unknown as MenusService;
-    const service = new CustomerCatalogReadService(menusService, makeMenuCache());
+    const service = new CustomerCatalogReadService(menusService, makeMenuCache(), makeRatingsService());
 
     const result = await service.getVisibleBranchCatalog('branch_404');
 
@@ -124,7 +130,7 @@ describe('CustomerCatalogReadService', () => {
         uncategorizedItems: [],
       }),
     } as unknown as MenusService;
-    const service = new CustomerCatalogReadService(menusService, makeMenuCache());
+    const service = new CustomerCatalogReadService(menusService, makeMenuCache(), makeRatingsService());
 
     await service.getVisibleBranchCatalog('branch_1');
 
@@ -150,7 +156,7 @@ describe('CustomerCatalogReadService', () => {
         uncategorizedItems: [],
       }),
     } as unknown as MenusService;
-    const service = new CustomerCatalogReadService(menusService, makeMenuCache());
+    const service = new CustomerCatalogReadService(menusService, makeMenuCache(), makeRatingsService());
 
     await service.getVisibleBranchCatalog('branch_1', {
       storeTypeCode: 'Pharmacy',
@@ -167,7 +173,7 @@ describe('CustomerCatalogReadService', () => {
       findBranchCatalogByBranchId: jest.fn().mockResolvedValue(makeCatalog()),
       buildBranchCatalog: jest.fn(),
     } as unknown as MenusService;
-    const service = new CustomerCatalogReadService(menusService, makeMenuCache());
+    const service = new CustomerCatalogReadService(menusService, makeMenuCache(), makeRatingsService());
 
     const result = await service.getVisibleBranchCatalog('branch_1', {
       storeTypeCode: 'beauty',
@@ -186,7 +192,7 @@ describe('CustomerCatalogReadService', () => {
       ),
       buildBranchCatalog: jest.fn(),
     } as unknown as MenusService;
-    const service = new CustomerCatalogReadService(menusService, makeMenuCache());
+    const service = new CustomerCatalogReadService(menusService, makeMenuCache(), makeRatingsService());
 
     const result = await service.getVisibleBranchCatalog('branch_1');
 
@@ -213,7 +219,7 @@ describe('CustomerCatalogReadService', () => {
       ),
       buildBranchCatalog: jest.fn(),
     } as unknown as MenusService;
-    const service = new CustomerCatalogReadService(menusService, makeMenuCache());
+    const service = new CustomerCatalogReadService(menusService, makeMenuCache(), makeRatingsService());
 
     const result = await service.getVisibleBranchCatalog('branch_1');
 

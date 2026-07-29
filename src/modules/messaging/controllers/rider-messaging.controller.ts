@@ -88,6 +88,20 @@ export class RiderMessagingController {
   }
 
   @ApiOperation({
+    operationId: 'markAllCurrentRiderConversationsRead',
+    summary: 'Mark every conversation visible to the authenticated rider as read',
+  })
+  @ApiOkResponse({
+    description: 'Returns the conversation IDs that were marked read.',
+  })
+  @Post('conversations/read-all')
+  markAllRead(@CurrentUser() currentUser: AuthenticatedUserEntity) {
+    return this.messagingRestService.markAllCurrentUserConversationsRead(
+      currentUser,
+    );
+  }
+
+  @ApiOperation({
     operationId: 'getCurrentRiderConversation',
     summary: 'Get a rider-visible conversation summary',
   })

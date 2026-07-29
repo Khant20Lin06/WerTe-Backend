@@ -249,6 +249,8 @@ export class CatalogMenuItemEntity {
   isLowStock!: boolean;
   sortOrder!: number;
   isAvailable!: boolean;
+  averageRating?: number | null;
+  reviewCount!: number;
   scopedStoreTypes!: CatalogScopedStoreTypeEntity[];
   optionGroups!: CatalogOptionGroupEntity[];
   variantCombinations!: CatalogVariantCombinationEntity[];
@@ -370,6 +372,8 @@ export function buildBranchCatalog(
     isLowStock: isLowStock(item),
     sortOrder: item.sortOrder,
     isAvailable: item.isAvailable,
+    averageRating: null,
+    reviewCount: 0,
     scopedStoreTypes: item.storeTypes.map((assignment) => ({
       id: assignment.storeType.id,
       code: assignment.storeType.code,

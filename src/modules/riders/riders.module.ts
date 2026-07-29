@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { DeliveriesModule } from '../deliveries/deliveries.module';
 import { RatingsModule } from '../ratings/ratings.module';
+import { UploadsModule } from '../uploads/uploads.module';
 import { AdminRidersController } from './controllers/admin-riders.controller';
 import { RiderAvailabilityController } from './controllers/rider-availability.controller';
 import { RiderLocationController } from './controllers/rider-location.controller';
@@ -15,7 +16,7 @@ import { RiderLocationService } from './services/rider-location.service';
 import { RidersService } from './services/riders.service';
 
 @Module({
-  imports: [DeliveriesModule, RatingsModule],
+  imports: [DeliveriesModule, RatingsModule, UploadsModule],
   controllers: [
     RiderProfileController,
     RiderAvailabilityController,

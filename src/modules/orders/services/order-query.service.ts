@@ -91,13 +91,23 @@ export class OrderQueryService {
 
   async listRiderOrders(
     currentUser: AuthenticatedUserEntity,
-  ): Promise<OrderSummaryEntity[]> {
+    options?: { cursor?: string; limit?: number },
+  ): Promise<{
+    orders: OrderSummaryEntity[];
+    nextCursor: string | null;
+    hasMore: boolean;
+  }> {
     const riderId = this.requireRiderId(currentUser);
-    const orders = await this.ordersRepository.findRiderOrderSummaries(riderId);
+    const { records, nextCursor, hasMore } =
+      await this.ordersRepository.findRiderOrderSummaries(riderId, options);
 
-    return orders.map((order) =>
-      this.attachAvailableActions(currentUser, this.buildOrderSummary(order)),
-    );
+    return {
+      orders: records.map((order) =>
+        this.attachAvailableActions(currentUser, this.buildOrderSummary(order)),
+      ),
+      nextCursor,
+      hasMore,
+    };
   }
 
   async getRiderOrderDetail(

@@ -30,9 +30,21 @@ export class RatingsRepository {
     });
   }
 
-  async findExisting(orderId: string, raterType: RaterType, targetType: RatingTargetType) {
+  async findExisting(
+    orderId: string,
+    raterType: RaterType,
+    targetType: RatingTargetType,
+    targetId: string,
+  ) {
     return this.prisma.rating.findUnique({
-      where: { orderId_raterType_targetType: { orderId, raterType, targetType } },
+      where: {
+        orderId_raterType_targetType_targetId: {
+          orderId,
+          raterType,
+          targetType,
+          targetId,
+        },
+      },
     });
   }
 
@@ -43,6 +55,33 @@ export class RatingsRepository {
       _count: true,
     });
     return result._avg.score ?? 0;
+  }
+
+  /**
+   * Aggregate rating average + count for many targets of the same type in one
+   * query. Used by the catalog to show per-menu-item ratings without an N+1.
+   */
+  async averageScoresForTargets(
+    targetType: RatingTargetType,
+    targetIds: string[],
+  ): Promise<Map<string, { average: number; count: number }>> {
+    const result = new Map<string, { average: number; count: number }>();
+    if (targetIds.length === 0) return result;
+
+    const grouped = await this.prisma.rating.groupBy({
+      by: ['targetId'],
+      where: { targetType, targetId: { in: targetIds } },
+      _avg: { score: true },
+      _count: true,
+    });
+
+    for (const row of grouped) {
+      result.set(row.targetId, {
+        average: row._avg.score ?? 0,
+        count: row._count,
+      });
+    }
+    return result;
   }
 
   async listAll(params: { targetType?: RatingTargetType; page: number; limit: number }) {

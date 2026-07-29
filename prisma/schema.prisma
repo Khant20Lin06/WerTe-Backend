@@ -26,6 +26,7 @@ enum RatingTargetType {
   RIDER
   BRANCH
   CUSTOMER
+  MENU_ITEM
 }
 
 enum MerchantStaffRole {
@@ -543,7 +544,9 @@ model Rider {
   userId          String                 @unique
   displayName     String
   vehicleType     String
+  plateNumber     String?
   currentTownship String?
+  weeklySchedule  Json?
   status          RiderStatus            @default(PENDING)
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
@@ -552,9 +555,59 @@ model Rider {
   currentLocation RiderCurrentLocation?
   deliveries      Delivery[]
   locationHistory RiderLocationHistory[]
+  documents       RiderDocument[]
+  payoutMethod    RiderPayoutMethod?
 
   @@index([status])
   @@index([currentTownship])
+}
+
+enum RiderDocumentType {
+  DRIVERS_LICENSE
+  NATIONAL_ID
+  VEHICLE_REGISTRATION
+  INSURANCE
+}
+
+enum RiderDocumentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model RiderDocument {
+  id               String              @id @default(cuid())
+  riderId          String
+  type             RiderDocumentType
+  fileKey          String
+  fileUrl          String
+  status           RiderDocumentStatus @default(PENDING)
+  rejectionReason  String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  rider            Rider               @relation(fields: [riderId], references: [id], onDelete: Cascade)
+
+  @@index([riderId])
+  @@index([riderId, type])
+  @@index([status])
+}
+
+enum RiderPayoutMethodType {
+  BANK_ACCOUNT
+  KBZ_PAY
+  WAVE_PAY
+  AYA_PAY
+}
+
+model RiderPayoutMethod {
+  riderId       String                @id
+  type          RiderPayoutMethodType
+  accountName   String
+  accountNumber String
+  bankName      String?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  rider         Rider                 @relation(fields: [riderId], references: [id], onDelete: Cascade)
 }
 
 model RiderAvailability {
@@ -1595,7 +1648,7 @@ model Rating {
   createdAt  DateTime         @default(now())
   order      Order            @relation(fields: [orderId], references: [id])
 
-  @@unique([orderId, raterType, targetType])
+  @@unique([orderId, raterType, targetType, targetId])
   @@index([targetType, targetId])
   @@index([orderId])
   @@index([raterId, raterType])

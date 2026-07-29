@@ -23,6 +23,16 @@ export class UpdateRiderProfileDto {
   vehicleType?: string;
 
   @ApiPropertyOptional({
+    description: 'Vehicle plate number.',
+    example: '5J-1234',
+    maxLength: 20,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  plateNumber?: string;
+
+  @ApiPropertyOptional({
     description: 'Current operating township for dispatch context.',
     example: 'Kamaryut',
     maxLength: 120,

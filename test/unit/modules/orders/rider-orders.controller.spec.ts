@@ -1,4 +1,4 @@
-import { OrderStatus, UserRole, UserStatus } from '@prisma/client';
+import { DeliveryType, OrderStatus, UserRole, UserStatus } from '@prisma/client';
 
 import { makeAuthenticatedUser } from '../../helpers/authenticated-user.factory';
 import { OrderDetailEntity } from '../../../../src/modules/orders/entities/order-detail.entity';
@@ -15,6 +15,7 @@ function makeOrderSummary(): OrderSummaryEntity {
     addressId: 'addr_1',
     cartId: 'cart_1',
     status: OrderStatus.RIDER_ASSIGNED,
+    deliveryType: DeliveryType.DELIVERY,
     currencyCode: 'MMK',
     subtotalAmount: '6500',
     discountAmount: '0',
@@ -95,14 +96,23 @@ describe('RiderOrdersController', () => {
 
   it('delegates list requests to the rider-scoped order query service', async () => {
     const orderQueryService = {
-      listRiderOrders: jest.fn().mockResolvedValue([makeOrderSummary()]),
+      listRiderOrders: jest.fn().mockResolvedValue({
+        orders: [makeOrderSummary()],
+        nextCursor: null,
+        hasMore: false,
+      }),
     } as unknown as jest.Mocked<OrderQueryService>;
     const controller = new RiderOrdersController(orderQueryService);
 
-    const result = await controller.list(currentUser);
+    const result = await controller.list(currentUser, {});
 
-    expect(orderQueryService.listRiderOrders).toHaveBeenCalledWith(currentUser);
-    expect(result[0]).toMatchObject({
+    expect(orderQueryService.listRiderOrders).toHaveBeenCalledWith(currentUser, {
+      cursor: undefined,
+      limit: undefined,
+    });
+    expect(result.hasMore).toBe(false);
+    expect(result.nextCursor).toBeNull();
+    expect(result.data[0]).toMatchObject({
       orderId: 'order_1',
     });
   });

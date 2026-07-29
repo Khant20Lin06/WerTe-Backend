@@ -85,4 +85,19 @@ export class MessageReceiptService {
 
     return receipt;
   }
+
+  async markAllConversationsRead(
+    currentUser: AuthenticatedUserEntity,
+  ): Promise<{ conversationIds: string[] }> {
+    const conversationIds =
+      await this.messageRepository.markAllConversationsReadForUser(
+        currentUser.userId,
+      );
+
+    for (const conversationId of conversationIds) {
+      this.messageDeliveryService.emitConversationUpdated(conversationId);
+    }
+
+    return { conversationIds };
+  }
 }

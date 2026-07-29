@@ -359,6 +359,20 @@ export class CatalogMenuItemDto {
 
   @ApiProperty({
     description:
+      'Average customer rating for the item (1-5). Null when no ratings exist.',
+    example: 4.5,
+    nullable: true,
+  })
+  averageRating!: number | null;
+
+  @ApiProperty({
+    description: 'Total number of customer ratings for the item.',
+    example: 12,
+  })
+  reviewCount!: number;
+
+  @ApiProperty({
+    description:
       'Approved store types this item is scoped to. An empty array means the item is visible across all approved store types for the branch.',
     type: () => MenuScopedStoreTypeDto,
     isArray: true,
@@ -563,6 +577,8 @@ function toCatalogMenuItemDto(item: CatalogMenuItemEntity): CatalogMenuItemDto {
     isLowStock: item.isLowStock,
     sortOrder: item.sortOrder,
     isAvailable: item.isAvailable,
+    averageRating: item.averageRating ?? null,
+    reviewCount: item.reviewCount ?? 0,
     storeTypes: item.scopedStoreTypes.map((storeType) => ({
       id: storeType.id,
       code: storeType.code,

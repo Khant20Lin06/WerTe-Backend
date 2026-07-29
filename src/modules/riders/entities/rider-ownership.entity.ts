@@ -39,7 +39,9 @@ export class RiderOwnershipEntity {
   userStatus!: UserStatus;
   displayName!: string;
   vehicleType!: string;
+  plateNumber?: string | null;
   currentTownship?: string | null;
+  weeklySchedule!: Prisma.JsonValue | null;
   status!: RiderStatus;
   availability!: RiderAvailabilitySnapshotEntity | null;
 }
@@ -62,7 +64,9 @@ export function buildRiderOwnership(
     userStatus: rider.user.status,
     displayName: rider.displayName,
     vehicleType: rider.vehicleType,
+    plateNumber: rider.plateNumber,
     currentTownship: rider.currentTownship,
+    weeklySchedule: rider.weeklySchedule,
     status: rider.status,
     availability:
       rider.availability === null

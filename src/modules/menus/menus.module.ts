@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { BranchesModule } from '../branches/branches.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { RatingsModule } from '../ratings/ratings.module';
 import { CustomerCatalogController } from './controllers/customer-catalog.controller';
 import { MerchantInventoryController } from './controllers/merchant-inventory.controller';
 import { MerchantMenuCategoriesController } from './controllers/merchant-menu-categories.controller';
@@ -32,7 +33,7 @@ import { MenuInventoryLifecycleService } from './services/menu-inventory-lifecyc
 import { MenusService } from './services/menus.service';
 
 @Module({
-  imports: [BranchesModule, AuditModule, NotificationsModule],
+  imports: [BranchesModule, AuditModule, NotificationsModule, RatingsModule],
   controllers: [
     CustomerCatalogController,
     MerchantInventoryController,

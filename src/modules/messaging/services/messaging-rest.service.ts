@@ -99,4 +99,10 @@ export class MessagingRestService {
   ): Promise<MarkReadDto> {
     return this.messageReceiptService.markMessageRead(currentUser, messageId);
   }
+
+  async markAllCurrentUserConversationsRead(
+    currentUser: AuthenticatedUserEntity,
+  ): Promise<{ conversationIds: string[] }> {
+    return this.messageReceiptService.markAllConversationsRead(currentUser);
+  }
 }

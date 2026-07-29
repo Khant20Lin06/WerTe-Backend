@@ -1,5 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, RiderStatus, UserStatus } from '@prisma/client';
+import {
+  Prisma,
+  RiderDocument,
+  RiderDocumentType,
+  RiderPayoutMethod,
+  RiderPayoutMethodType,
+  RiderStatus,
+  UserStatus,
+} from '@prisma/client';
 
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import {
@@ -149,6 +157,53 @@ export class RidersRepository {
         accuracyMeters: data.accuracyMeters ?? null,
         recordedAt: data.recordedAt,
       },
+    });
+  }
+
+  findDocumentsByRiderId(riderId: string): Promise<RiderDocument[]> {
+    return this.prisma.riderDocument.findMany({
+      where: { riderId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async replaceDocument(
+    riderId: string,
+    type: RiderDocumentType,
+    data: { fileKey: string; fileUrl: string },
+  ): Promise<RiderDocument> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.riderDocument.deleteMany({ where: { riderId, type } });
+      return tx.riderDocument.create({
+        data: {
+          riderId,
+          type,
+          fileKey: data.fileKey,
+          fileUrl: data.fileUrl,
+        },
+      });
+    });
+  }
+
+  findPayoutMethodByRiderId(
+    riderId: string,
+  ): Promise<RiderPayoutMethod | null> {
+    return this.prisma.riderPayoutMethod.findUnique({ where: { riderId } });
+  }
+
+  upsertPayoutMethod(
+    riderId: string,
+    data: {
+      type: RiderPayoutMethodType;
+      accountName: string;
+      accountNumber: string;
+      bankName: string | null;
+    },
+  ): Promise<RiderPayoutMethod> {
+    return this.prisma.riderPayoutMethod.upsert({
+      where: { riderId },
+      create: { riderId, ...data },
+      update: data,
     });
   }
 

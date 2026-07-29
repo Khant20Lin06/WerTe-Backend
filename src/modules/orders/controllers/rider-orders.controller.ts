@@ -1,4 +1,4 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import {
   ApiBearerAuth,
@@ -11,8 +11,10 @@ import {
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { AuthenticatedUserEntity } from '../../auth/entities/authenticated-user.entity';
+import { ListRiderOrdersQueryDto } from '../dto/list-rider-orders-query.dto';
 import { OrderDetailDto, toOrderDetailDto } from '../dto/order-detail.dto';
-import { OrderSummaryDto, toOrderSummaryDto } from '../dto/order-summary.dto';
+import { RiderOrderListDto } from '../dto/rider-order-list.dto';
+import { toOrderSummaryDto } from '../dto/order-summary.dto';
 import { OrderQueryService } from '../services/order-query.service';
 
 @ApiTags('rider-orders')
@@ -28,15 +30,25 @@ export class RiderOrdersController {
   })
   @ApiOkResponse({
     description:
-      'Returns orders visible to the authenticated rider, including active delivery context.',
-    type: OrderSummaryDto,
-    isArray: true,
+      'Returns a cursor-paginated page of orders visible to the authenticated rider, including active delivery context.',
+    type: RiderOrderListDto,
   })
   @Get()
-  async list(@CurrentUser() currentUser: AuthenticatedUserEntity) {
-    const orders = await this.orderQueryService.listRiderOrders(currentUser);
+  async list(
+    @CurrentUser() currentUser: AuthenticatedUserEntity,
+    @Query() query: ListRiderOrdersQueryDto,
+  ): Promise<RiderOrderListDto> {
+    const { orders, nextCursor, hasMore } =
+      await this.orderQueryService.listRiderOrders(currentUser, {
+        cursor: query.cursor,
+        limit: query.limit,
+      });
 
-    return orders.map((order) => toOrderSummaryDto(order));
+    return {
+      data: orders.map((order) => toOrderSummaryDto(order)),
+      nextCursor,
+      hasMore,
+    };
   }
 
   @ApiOperation({

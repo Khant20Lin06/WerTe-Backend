@@ -159,12 +159,20 @@ export class OrdersRepository {
     });
   }
 
-  findRiderOrderSummaries(
+  async findRiderOrderSummaries(
     riderId: string,
-    limit = 20,
+    options?: {
+      cursor?: string;
+      limit?: number;
+    },
     client: OrderDatabaseClient = this.prisma,
-  ): Promise<OrderSummaryRecord[]> {
-    return client.order.findMany({
+  ): Promise<{
+    records: OrderSummaryRecord[];
+    nextCursor: string | null;
+    hasMore: boolean;
+  }> {
+    const limit = Math.min(Math.max(options?.limit ?? 20, 1), 100);
+    const orders = await client.order.findMany({
       where: {
         delivery: {
           is: {
@@ -174,8 +182,19 @@ export class OrdersRepository {
       },
       include: orderSummaryInclude,
       orderBy: [{ placedAt: 'desc' }, { id: 'desc' }],
-      take: limit,
+      cursor: options?.cursor === undefined ? undefined : { id: options.cursor },
+      skip: options?.cursor === undefined ? 0 : 1,
+      take: limit + 1,
     });
+
+    const hasMore = orders.length > limit;
+    const records = hasMore ? orders.slice(0, limit) : orders;
+
+    return {
+      records,
+      nextCursor: hasMore ? records[records.length - 1]?.id ?? null : null,
+      hasMore,
+    };
   }
 
   findOrderDetailById(

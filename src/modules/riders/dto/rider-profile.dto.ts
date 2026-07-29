@@ -34,6 +34,13 @@ export class RiderProfileDto {
   vehicleType!: string;
 
   @ApiPropertyOptional({
+    description: 'Vehicle plate number.',
+    example: '5J-1234',
+    nullable: true,
+  })
+  plateNumber?: string | null;
+
+  @ApiPropertyOptional({
     description: 'Current operating township for the rider.',
     example: 'Kamaryut',
   })
@@ -94,6 +101,7 @@ export function toRiderProfileDto(
     phone: rider.user.phone,
     displayName: rider.displayName,
     vehicleType: rider.vehicleType,
+    plateNumber: rider.plateNumber,
     currentTownship: rider.currentTownship,
     status: rider.status,
     accountStatus: rider.user.status,

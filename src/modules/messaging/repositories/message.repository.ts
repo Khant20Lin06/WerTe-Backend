@@ -308,4 +308,69 @@ export class MessageRepository {
       };
     });
   }
+
+  async markAllConversationsReadForUser(userId: string): Promise<string[]> {
+    const readAt = new Date();
+
+    return this.prisma.$transaction(async (tx) => {
+      const unreadReceipts = await tx.messageReceipt.findMany({
+        where: {
+          userId,
+          status: { not: MessageDeliveryStatus.READ },
+        },
+        select: {
+          message: {
+            select: { conversationId: true },
+          },
+        },
+      });
+
+      const conversationIds = [
+        ...new Set(unreadReceipts.map((r) => r.message.conversationId)),
+      ];
+
+      if (conversationIds.length === 0) {
+        return [];
+      }
+
+      await tx.messageReceipt.updateMany({
+        where: {
+          userId,
+          status: { not: MessageDeliveryStatus.READ },
+          message: {
+            conversationId: { in: conversationIds },
+          },
+        },
+        data: {
+          status: MessageDeliveryStatus.READ,
+          readAt,
+        },
+      });
+
+      const conversations = await tx.conversation.findMany({
+        where: { id: { in: conversationIds } },
+        select: { id: true, lastMessageId: true },
+      });
+
+      await Promise.all(
+        conversations
+          .filter((c) => c.lastMessageId !== null)
+          .map((c) =>
+            tx.conversationParticipant.updateMany({
+              where: {
+                conversationId: c.id,
+                userId,
+                leftAt: null,
+              },
+              data: {
+                lastReadMessageId: c.lastMessageId,
+                lastReadAt: readAt,
+              },
+            }),
+          ),
+      );
+
+      return conversationIds;
+    });
+  }
 }

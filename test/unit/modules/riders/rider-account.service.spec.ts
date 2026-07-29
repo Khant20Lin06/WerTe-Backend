@@ -8,6 +8,8 @@ import { RiderPolicyService } from '../../../../src/modules/riders/policies/ride
 import { RidersRepository } from '../../../../src/modules/riders/repositories/riders.repository';
 import { RiderAccountService } from '../../../../src/modules/riders/services/rider-account.service';
 import { RidersService } from '../../../../src/modules/riders/services/riders.service';
+import { RatingsService } from '../../../../src/modules/ratings/ratings.service';
+import { UploadsService } from '../../../../src/modules/uploads/services/uploads.service';
 
 describe('RiderAccountService', () => {
   const currentUser: AuthenticatedUserEntity = {
@@ -31,7 +33,9 @@ describe('RiderAccountService', () => {
     userId: 'usr_rider_1',
     displayName: 'Ko Aung',
     vehicleType: 'bike',
+    plateNumber: null,
     currentTownship: 'Kamaryut',
+    weeklySchedule: null,
     status: RiderStatus.ACTIVE,
     createdAt: new Date('2026-04-19T00:00:00.000Z'),
     updatedAt: new Date('2026-04-19T00:00:00.000Z'),
@@ -50,6 +54,17 @@ describe('RiderAccountService', () => {
     ...overrides,
   });
 
+  const makeRatingsService = () =>
+    ({
+      getTargetRatings: jest.fn().mockResolvedValue({
+        ratings: [],
+        average: 0,
+        count: 0,
+      }),
+    }) as unknown as RatingsService;
+
+  const makeUploadsService = () => ({}) as unknown as UploadsService;
+
   it('returns the authenticated rider profile', async () => {
     const ridersService = {
       findOwnedByUserId: jest.fn().mockResolvedValue(makeRider()),
@@ -58,6 +73,8 @@ describe('RiderAccountService', () => {
       ridersService,
       {} as RidersRepository,
       new RiderPolicyService(),
+      makeRatingsService(),
+      makeUploadsService(),
     );
 
     await expect(service.getCurrentRiderProfile(currentUser)).resolves.toEqual({
@@ -65,11 +82,15 @@ describe('RiderAccountService', () => {
       phone: '0977777777',
       displayName: 'Ko Aung',
       vehicleType: 'bike',
+      plateNumber: null,
       currentTownship: 'Kamaryut',
       status: RiderStatus.ACTIVE,
       accountStatus: UserStatus.ACTIVE,
       createdAt: '2026-04-19T00:00:00.000Z',
       updatedAt: '2026-04-19T00:00:00.000Z',
+      isOnline: true,
+      averageRating: null,
+      reviewCount: 0,
     });
   });
 
@@ -81,6 +102,8 @@ describe('RiderAccountService', () => {
       ridersService,
       {} as RidersRepository,
       new RiderPolicyService(),
+      makeRatingsService(),
+      makeUploadsService(),
     );
 
     await expect(service.getOperationalSummary(currentUser)).resolves.toEqual({
@@ -105,6 +128,8 @@ describe('RiderAccountService', () => {
       ridersService,
       {} as RidersRepository,
       new RiderPolicyService(),
+      makeRatingsService(),
+      makeUploadsService(),
     );
 
     await expect(service.getCurrentRiderProfile(currentUser)).rejects.toMatchObject({

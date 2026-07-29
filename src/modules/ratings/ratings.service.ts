@@ -33,11 +33,22 @@ export class RatingsService {
       if (order.delivery.riderId !== dto.targetId) throw new BadRequestException('Invalid rider for this order');
     } else if (dto.targetType === RatingTargetType.BRANCH) {
       if (order.branchId !== dto.targetId) throw new BadRequestException('Invalid branch for this order');
+    } else if (dto.targetType === RatingTargetType.MENU_ITEM) {
+      const orderItem = await this.prisma.orderItem.findFirst({
+        where: { orderId, menuItemId: dto.targetId },
+        select: { id: true },
+      });
+      if (!orderItem) throw new BadRequestException('This item was not part of the order');
     } else {
-      throw new BadRequestException('Customers can only rate RIDER or BRANCH');
+      throw new BadRequestException('Customers can only rate RIDER, BRANCH or MENU_ITEM');
     }
 
-    const existing = await this.ratingsRepository.findExisting(orderId, RaterType.CUSTOMER, dto.targetType);
+    const existing = await this.ratingsRepository.findExisting(
+      orderId,
+      RaterType.CUSTOMER,
+      dto.targetType,
+      dto.targetId,
+    );
     if (existing) throw new BadRequestException('You have already rated this for the order');
 
     return this.ratingsRepository.create({
@@ -77,6 +88,7 @@ export class RatingsService {
       delivery.orderId,
       RaterType.RIDER,
       RatingTargetType.CUSTOMER,
+      dto.targetId,
     );
     if (existing) throw new BadRequestException('You have already rated this customer');
 
@@ -101,6 +113,19 @@ export class RatingsService {
       this.ratingsRepository.averageScore(targetType, targetId),
     ]);
     return { ratings, average, count: ratings.length };
+  }
+
+  /**
+   * Return rating average + count keyed by menu item id, for a batch of items.
+   * Items without any ratings are simply absent from the map.
+   */
+  async getMenuItemRatings(
+    menuItemIds: string[],
+  ): Promise<Map<string, { average: number; count: number }>> {
+    return this.ratingsRepository.averageScoresForTargets(
+      RatingTargetType.MENU_ITEM,
+      menuItemIds,
+    );
   }
 
   async getAdminStats() {
