@@ -1,3 +1,4 @@
+import { AppLogger } from '../../../../src/infrastructure/logging/app.logger';
 import { CacheMetricsService } from '../../../../src/infrastructure/metrics/cache-metrics.service';
 import { DiscoveryCacheService } from '../../../../src/modules/store-types/services/discovery-cache.service';
 import { RedisService } from '../../../../src/infrastructure/redis/redis.service';
@@ -38,12 +39,19 @@ const makeCacheMetrics = () =>
   ({
     hit: jest.fn(),
     miss: jest.fn(),
+    error: jest.fn(),
   }) as unknown as jest.Mocked<CacheMetricsService>;
+
+const makeLogger = () =>
+  ({
+    warnEvent: jest.fn(),
+    errorEvent: jest.fn(),
+  }) as unknown as jest.Mocked<AppLogger>;
 
 describe('DiscoveryCacheService', () => {
   describe('isCacheable()', () => {
     let service: DiscoveryCacheService;
-    beforeEach(() => { service = new DiscoveryCacheService(makeRedis(), makeCacheMetrics()); });
+    beforeEach(() => { service = new DiscoveryCacheService(makeRedis(), makeCacheMetrics(), makeLogger()); });
 
     it('returns true when filter has no targeted fields', () => {
       expect(service.isCacheable({ storeTypeCodes: ['restaurant'], township: 'YGN' })).toBe(true);
@@ -69,7 +77,7 @@ describe('DiscoveryCacheService', () => {
         get: jest.fn().mockResolvedValue(null),
         ttl: jest.fn().mockResolvedValue(-2),
       });
-      const service = new DiscoveryCacheService(redis, makeCacheMetrics());
+      const service = new DiscoveryCacheService(redis, makeCacheMetrics(), makeLogger());
 
       const result = await service.getList({ storeTypeCodes: ['restaurant'] });
 
@@ -82,7 +90,7 @@ describe('DiscoveryCacheService', () => {
         get: jest.fn().mockResolvedValue(JSON.stringify(records)),
         ttl: jest.fn().mockResolvedValue(200), // 200s remaining — well above 60s window
       });
-      const service = new DiscoveryCacheService(redis, makeCacheMetrics());
+      const service = new DiscoveryCacheService(redis, makeCacheMetrics(), makeLogger());
 
       const result = await service.getList({ township: 'Botahtaung' });
 
@@ -95,7 +103,7 @@ describe('DiscoveryCacheService', () => {
         get: jest.fn().mockResolvedValue(JSON.stringify(records)),
         ttl: jest.fn().mockResolvedValue(60), // exactly at boundary — NOT inside early window
       });
-      const service = new DiscoveryCacheService(redis, makeCacheMetrics());
+      const service = new DiscoveryCacheService(redis, makeCacheMetrics(), makeLogger());
 
       // At 60s remaining (not < 60) PER should not trigger regardless of random.
       jest.spyOn(Math, 'random').mockReturnValue(0); // 0 < 0.5 would trigger if inside window
@@ -112,7 +120,7 @@ describe('DiscoveryCacheService', () => {
           get: jest.fn().mockResolvedValue(JSON.stringify(records)),
           ttl: jest.fn().mockResolvedValue(30), // 30s remaining — inside 60s window
         });
-        const service = new DiscoveryCacheService(redis, makeCacheMetrics());
+        const service = new DiscoveryCacheService(redis, makeCacheMetrics(), makeLogger());
 
         jest.spyOn(Math, 'random').mockReturnValue(0.3); // 0.3 < 0.5 → triggers refresh
         const result = await service.getList({});
@@ -127,7 +135,7 @@ describe('DiscoveryCacheService', () => {
           get: jest.fn().mockResolvedValue(JSON.stringify(records)),
           ttl: jest.fn().mockResolvedValue(30),
         });
-        const service = new DiscoveryCacheService(redis, makeCacheMetrics());
+        const service = new DiscoveryCacheService(redis, makeCacheMetrics(), makeLogger());
 
         jest.spyOn(Math, 'random').mockReturnValue(0.7); // 0.7 >= 0.5 → serve cache
         const result = await service.getList({});
@@ -143,7 +151,7 @@ describe('DiscoveryCacheService', () => {
           get: jest.fn().mockResolvedValue(JSON.stringify(records)),
           ttl: jest.fn().mockResolvedValue(-1),
         });
-        const service = new DiscoveryCacheService(redis, makeCacheMetrics());
+        const service = new DiscoveryCacheService(redis, makeCacheMetrics(), makeLogger());
 
         jest.spyOn(Math, 'random').mockReturnValue(0); // would trigger if guard absent
         const result = await service.getList({});
@@ -157,7 +165,7 @@ describe('DiscoveryCacheService', () => {
   describe('setList()', () => {
     it('serializes records and stores with TTL_SECONDS expiry', async () => {
       const redis = makeRedis();
-      const service = new DiscoveryCacheService(redis, makeCacheMetrics());
+      const service = new DiscoveryCacheService(redis, makeCacheMetrics(), makeLogger());
       const records = [makeRecord()];
       const filter = { storeTypeCodes: ['restaurant'], township: 'YGN' };
 
@@ -173,7 +181,7 @@ describe('DiscoveryCacheService', () => {
 
     it('builds a sorted cache key so storeTypeCodes order does not create duplicates', async () => {
       const redis = makeRedis();
-      const service = new DiscoveryCacheService(redis, makeCacheMetrics());
+      const service = new DiscoveryCacheService(redis, makeCacheMetrics(), makeLogger());
 
       await service.setList({ storeTypeCodes: ['pharmacy', 'restaurant'] }, []);
       await service.setList({ storeTypeCodes: ['restaurant', 'pharmacy'] }, []);
@@ -190,7 +198,7 @@ describe('DiscoveryCacheService', () => {
           .mockResolvedValueOnce(['0', ['store-discovery:list:all:all', 'store-discovery:list:restaurant:YGN']]),
         del: jest.fn().mockResolvedValue(2),
       });
-      const service = new DiscoveryCacheService(redis, makeCacheMetrics());
+      const service = new DiscoveryCacheService(redis, makeCacheMetrics(), makeLogger());
 
       await service.invalidateAll();
 
@@ -207,7 +215,7 @@ describe('DiscoveryCacheService', () => {
         del: jest.fn().mockResolvedValue(1),
         keyPrefix: 'prefix:',
       });
-      const service = new DiscoveryCacheService(redis, makeCacheMetrics());
+      const service = new DiscoveryCacheService(redis, makeCacheMetrics(), makeLogger());
 
       await service.invalidateAll();
 
@@ -218,7 +226,7 @@ describe('DiscoveryCacheService', () => {
       const redis = makeRedis({
         scan: jest.fn().mockResolvedValueOnce(['0', []]),
       });
-      const service = new DiscoveryCacheService(redis, makeCacheMetrics());
+      const service = new DiscoveryCacheService(redis, makeCacheMetrics(), makeLogger());
 
       await service.invalidateAll();
 

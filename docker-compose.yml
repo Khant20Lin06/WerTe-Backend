@@ -10,7 +10,11 @@ x-backend-env: &backend-env
   # connection_limit=5 per replica — PgBouncer multiplexes to Postgres, so fewer is better.
   DATABASE_URL: postgresql://postgres:postgres@pgbouncer:6432/food_delivery?pgbouncer=true&connection_limit=5&pool_timeout=10
   DB_ENABLE_QUERY_LOGS: 'false'
-  REDIS_URL: redis://redis:6379
+  # Local/dev password only — override REDIS_URL in real deployments with a
+  # secret-managed credential. An unauthenticated Redis reachable on the
+  # network is a full read/write data-plane compromise, not just a cache
+  # leak (sessions, rate-limit state, and job payloads all live here).
+  REDIS_URL: redis://:local-dev-only-change-me@redis:6379
   REDIS_KEY_PREFIX: food-delivery
   JWT_ACCESS_SECRET: replace-with-a-32-char-min-access-secret
   JWT_REFRESH_SECRET: replace-with-a-32-char-min-refresh-secret
@@ -45,12 +49,13 @@ services:
   redis:
     image: redis:7
     restart: unless-stopped
+    command: [ 'redis-server', '--requirepass', 'local-dev-only-change-me' ]
     ports:
       - '6379:6379'
     volumes:
       - redis-data:/data
     healthcheck:
-      test: [ 'CMD', 'redis-cli', 'ping' ]
+      test: [ 'CMD', 'redis-cli', '-a', 'local-dev-only-change-me', '--no-auth-warning', 'ping' ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -121,7 +126,12 @@ services:
     ports:
       - '3000:3000'
     healthcheck:
-      test: [ 'CMD', 'node', '-e', "fetch('http://127.0.0.1:3000/api/v1/health/live').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))" ]
+      # /health/ready checks DB + Redis + queue connectivity (unlike
+      # /health/live, which only proves the process is up). Docker Compose has
+      # no separate readiness concept, so this is the one healthcheck that
+      # gates `depends_on: condition: service_healthy` and `docker compose ps`
+      # — it should reflect whether the app can actually serve traffic.
+      test: [ 'CMD', 'node', '-e', "fetch('http://127.0.0.1:3000/api/v1/health/ready').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))" ]
       interval: 15s
       timeout: 5s
       retries: 5

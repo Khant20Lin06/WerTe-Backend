@@ -59,6 +59,20 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
         maxRetriesPerRequest: null,
       },
     );
+
+    // An ioredis client emitting 'error' with no listener attached throws
+    // synchronously and crashes the whole process (standard EventEmitter
+    // behavior) — confirmed live: stopping Redis crashed this container via
+    // an uncaught ETIMEDOUT before this handler existed. BullMQ keeps
+    // retrying/reconnecting on its own; this only stops that reconnect
+    // cycle from taking the process down with it.
+    this.connection.on('error', (error) => {
+      this.logger.warnEvent(
+        'BullMQ Redis connection error.',
+        { error: String(error) },
+        'QueueService',
+      );
+    });
   }
 
   onModuleInit(): void {

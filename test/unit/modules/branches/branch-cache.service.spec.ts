@@ -7,6 +7,7 @@ import {
   ZoneStatus,
 } from '@prisma/client';
 
+import { AppLogger } from '../../../../src/infrastructure/logging/app.logger';
 import { CacheMetricsService } from '../../../../src/infrastructure/metrics/cache-metrics.service';
 import { RedisService } from '../../../../src/infrastructure/redis/redis.service';
 import { BranchOwnershipRecord } from '../../../../src/modules/branches/entities/branch-ownership.entity';
@@ -69,11 +70,18 @@ describe('BranchCacheService', () => {
     ({
       hit: jest.fn(),
       miss: jest.fn(),
+      error: jest.fn(),
     }) as unknown as jest.Mocked<CacheMetricsService>;
+
+  const makeLogger = () =>
+    ({
+      warnEvent: jest.fn(),
+      errorEvent: jest.fn(),
+    }) as unknown as jest.Mocked<AppLogger>;
 
   describe('getById', () => {
     it('returns null on cache miss', async () => {
-      const service = new BranchCacheService(makeRedis(), makeCacheMetrics());
+      const service = new BranchCacheService(makeRedis(), makeCacheMetrics(), makeLogger());
       expect(await service.getById('br_1')).toBeNull();
     });
 
@@ -81,7 +89,7 @@ describe('BranchCacheService', () => {
       const branch = makeBranch();
       const serialized = JSON.stringify(branch);
       const redis = makeRedis({ 'branch:id:br_1': serialized });
-      const service = new BranchCacheService(redis, makeCacheMetrics());
+      const service = new BranchCacheService(redis, makeCacheMetrics(), makeLogger());
 
       const result = await service.getById('br_1');
       expect(result).toEqual(JSON.parse(serialized));
@@ -91,7 +99,7 @@ describe('BranchCacheService', () => {
   describe('setById', () => {
     it('stores branch under id key with TTL', async () => {
       const redis = makeRedis();
-      const service = new BranchCacheService(redis, makeCacheMetrics());
+      const service = new BranchCacheService(redis, makeCacheMetrics(), makeLogger());
       const branch = makeBranch();
 
       await service.setById(branch);
@@ -107,7 +115,7 @@ describe('BranchCacheService', () => {
 
   describe('getListByMerchantId', () => {
     it('returns null on cache miss', async () => {
-      const service = new BranchCacheService(makeRedis(), makeCacheMetrics());
+      const service = new BranchCacheService(makeRedis(), makeCacheMetrics(), makeLogger());
       expect(await service.getListByMerchantId('merch_1')).toBeNull();
     });
 
@@ -115,7 +123,7 @@ describe('BranchCacheService', () => {
       const branches = [makeBranch(), makeBranch({ id: 'br_2', name: 'North Branch' })];
       const serialized = JSON.stringify(branches);
       const redis = makeRedis({ 'branch:merchant:merch_1': serialized });
-      const service = new BranchCacheService(redis, makeCacheMetrics());
+      const service = new BranchCacheService(redis, makeCacheMetrics(), makeLogger());
 
       const result = await service.getListByMerchantId('merch_1');
       expect(result).toEqual(JSON.parse(serialized));
@@ -126,7 +134,7 @@ describe('BranchCacheService', () => {
   describe('setListByMerchantId', () => {
     it('stores branch list under merchant key with TTL', async () => {
       const redis = makeRedis();
-      const service = new BranchCacheService(redis, makeCacheMetrics());
+      const service = new BranchCacheService(redis, makeCacheMetrics(), makeLogger());
       const branches = [makeBranch()];
 
       await service.setListByMerchantId('merch_1', branches);
@@ -143,7 +151,7 @@ describe('BranchCacheService', () => {
   describe('invalidate', () => {
     it('deletes both id and merchant list keys', async () => {
       const redis = makeRedis();
-      const service = new BranchCacheService(redis, makeCacheMetrics());
+      const service = new BranchCacheService(redis, makeCacheMetrics(), makeLogger());
 
       await service.invalidate('br_1', 'merch_1');
 
@@ -151,6 +159,41 @@ describe('BranchCacheService', () => {
         'branch:id:br_1',
         'branch:merchant:merch_1',
       );
+    });
+  });
+
+  describe('resilience when Redis is unreachable', () => {
+    it('getById degrades to null instead of throwing', async () => {
+      const redis = {
+        get: jest.fn().mockRejectedValue(new Error('ECONNREFUSED')),
+      } as unknown as jest.Mocked<RedisService>;
+      const cacheMetrics = makeCacheMetrics();
+      const service = new BranchCacheService(redis, cacheMetrics, makeLogger());
+
+      await expect(service.getById('br_1')).resolves.toBeNull();
+      expect(cacheMetrics.error).toHaveBeenCalledWith('branch', 'read');
+    });
+
+    it('setById degrades silently instead of throwing', async () => {
+      const redis = {
+        set: jest.fn().mockRejectedValue(new Error('ECONNREFUSED')),
+      } as unknown as jest.Mocked<RedisService>;
+      const cacheMetrics = makeCacheMetrics();
+      const service = new BranchCacheService(redis, cacheMetrics, makeLogger());
+
+      await expect(service.setById(makeBranch())).resolves.toBeUndefined();
+      expect(cacheMetrics.error).toHaveBeenCalledWith('branch', 'write');
+    });
+
+    it('invalidate degrades silently instead of throwing', async () => {
+      const redis = {
+        del: jest.fn().mockRejectedValue(new Error('ECONNREFUSED')),
+      } as unknown as jest.Mocked<RedisService>;
+      const cacheMetrics = makeCacheMetrics();
+      const service = new BranchCacheService(redis, cacheMetrics, makeLogger());
+
+      await expect(service.invalidate('br_1', 'merch_1')).resolves.toBeUndefined();
+      expect(cacheMetrics.error).toHaveBeenCalledWith('branch', 'invalidate');
     });
   });
 });

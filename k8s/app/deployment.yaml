@@ -53,6 +53,11 @@ spec:
                 secretKeyRef:
                   name: food-delivery-secret
                   key: DATABASE_URL
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: food-delivery-secret
+                  key: REDIS_URL
             - name: JWT_ACCESS_SECRET
               valueFrom:
                 secretKeyRef:

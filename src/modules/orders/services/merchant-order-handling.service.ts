@@ -3,6 +3,8 @@ import { OrderStatus, PaymentMethod, PaymentStatus } from '@prisma/client';
 
 import { ErrorCodes } from '../../../common/constants/error-codes';
 import { AppException } from '../../../common/exceptions/app.exception';
+import { runBestEffort } from '../../../common/utils/run-best-effort.util';
+import { AppLogger } from '../../../infrastructure/logging/app.logger';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { QueueJobNames, QueueNames } from '../../../infrastructure/queue/queue.constants';
 import { QueueService } from '../../../infrastructure/queue/queue.service';
@@ -44,6 +46,7 @@ export class MerchantOrderHandlingService {
     private readonly menuInventoryLifecycleService: MenuInventoryLifecycleService,
     private readonly notificationEventService: NotificationEventService,
     private readonly queueService: QueueService,
+    private readonly logger: AppLogger,
   ) {}
 
   acceptCurrentMerchantOrder(
@@ -240,20 +243,31 @@ export class MerchantOrderHandlingService {
       return nextOrder;
     });
 
-    await this.systemMessageService.publishOrderEvent(currentUser, {
-      orderId: input.orderId,
-      code: this.mapStatusToSystemMessageCode(config.targetStatus),
-      metadata: {
-        actorUserId: currentUser.userId,
-        targetStatus: config.targetStatus,
-        reasonCode: input.reasonCode ?? config.defaultReasonCode,
-        note: input.note ?? null,
-      },
-      templateVariables: {
-        reasonCode: input.reasonCode ?? config.defaultReasonCode,
-        note: input.note ?? null,
-      },
-    });
+    // The order status change is already committed at this point (the
+    // transaction above returned). None of the following are allowed to
+    // turn a successful merchant action into a failed response — each is
+    // best-effort: log and continue, so a Redis blip doesn't tell the
+    // merchant their accept/reject/etc. failed when it didn't.
+    await runBestEffort(
+      'publish order status event',
+      () =>
+        this.systemMessageService.publishOrderEvent(currentUser, {
+          orderId: input.orderId,
+          code: this.mapStatusToSystemMessageCode(config.targetStatus),
+          metadata: {
+            actorUserId: currentUser.userId,
+            targetStatus: config.targetStatus,
+            reasonCode: input.reasonCode ?? config.defaultReasonCode,
+            note: input.note ?? null,
+          },
+          templateVariables: {
+            reasonCode: input.reasonCode ?? config.defaultReasonCode,
+            note: input.note ?? null,
+          },
+        }),
+      this.logger,
+      'MerchantOrderHandlingService',
+    );
 
     // Trigger auto-dispatch when merchant accepts (rider-first: assign rider before preparing).
     // For PICKUP orders, skip dispatch and auto-advance straight to PREPARING then READY
@@ -262,28 +276,58 @@ export class MerchantOrderHandlingService {
       if (orderDetail.deliveryType === 'PICKUP') {
         await this._autoAdvancePickupToReady(currentUser, input.orderId);
       } else {
-        await this.queueService.add(
-          QueueNames.dispatch,
-          QueueJobNames.dispatch.autoDispatchOrder,
-          { orderId: input.orderId },
-          { delayMs: 500 },
+        // Unlike checkout's order-timeout job, these two are not optional
+        // safety nets — autoDispatchOrder is the only mechanism that ever
+        // assigns a rider, and riderTimeout is the only thing that recovers
+        // an order stuck with no rider. A failure here is a genuine
+        // operational problem (the order is accepted but will never move
+        // again without manual intervention), not a cosmetic one — but it
+        // must still fail open at the HTTP layer: the merchant already
+        // successfully accepted the order, and telling them otherwise while
+        // leaving the order ACCEPTED in the database would be worse (they'd
+        // retry into a conflict, or think the action silently no-op'd). The
+        // failure is still logged at error level (same as the other
+        // best-effort calls below) so it's visible to on-call/alerting.
+        await runBestEffort(
+          'enqueue auto-dispatch job',
+          () =>
+            this.queueService.add(
+              QueueNames.dispatch,
+              QueueJobNames.dispatch.autoDispatchOrder,
+              { orderId: input.orderId },
+              { delayMs: 500 },
+            ),
+          this.logger,
+          'MerchantOrderHandlingService',
         );
         // Cancel if no rider is assigned within 30 minutes of acceptance.
-        await this.queueService.add(
-          QueueNames.orderTimeouts,
-          QueueJobNames.orderTimeouts.riderTimeout,
-          { orderId: input.orderId },
-          { delayMs: 30 * 60 * 1000 },
+        await runBestEffort(
+          'enqueue rider-timeout job',
+          () =>
+            this.queueService.add(
+              QueueNames.orderTimeouts,
+              QueueJobNames.orderTimeouts.riderTimeout,
+              { orderId: input.orderId },
+              { delayMs: 30 * 60 * 1000 },
+            ),
+          this.logger,
+          'MerchantOrderHandlingService',
         );
       }
     }
 
-    await this.publishRestoredInventoryAlerts(
-      restoredInventoryAlerts,
-      orderDetail.orderId,
-      orderDetail.orderCode,
-      input.reasonCode ?? config.defaultReasonCode,
-      input.note ?? null,
+    await runBestEffort(
+      'publish restored inventory alerts',
+      () =>
+        this.publishRestoredInventoryAlerts(
+          restoredInventoryAlerts,
+          orderDetail.orderId,
+          orderDetail.orderCode,
+          input.reasonCode ?? config.defaultReasonCode,
+          input.note ?? null,
+        ),
+      this.logger,
+      'MerchantOrderHandlingService',
     );
 
     return this.orderQueryService.attachAvailableActions(

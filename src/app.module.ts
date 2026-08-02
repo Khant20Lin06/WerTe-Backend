@@ -76,11 +76,32 @@ import { RolesGuard } from './common/guards/roles.guard';
           return { throttlers };
         }
 
+        // This connection sits in front of every request via the global
+        // ThrottlerGuard (APP_GUARD below) — including health checks. An
+        // unconfigured client here has no command timeout, so a Redis
+        // outage mid-flight (not just at boot) makes it hang indefinitely
+        // waiting on the throttler's increment() call, which stalls EVERY
+        // request through the whole API, not just Redis-touching ones.
+        // Verified live: this was the actual cause of /health/ready (and
+        // /health/live) hanging with Redis down, even after RedisService's
+        // own cache/session paths were already fixed to degrade fast.
+        const throttlerRedis = new Redis(
+          configService.getOrThrow<string>('redis.url'),
+          {
+            maxRetriesPerRequest: 2,
+            connectTimeout: 5_000,
+            commandTimeout: 3_000,
+            enableOfflineQueue: false,
+          },
+        );
+        // Without a listener, ioredis throws synchronously on a connection
+        // error and crashes the process (same class of bug fixed on the
+        // other raw IORedis connections in this app).
+        throttlerRedis.on('error', () => {});
+
         return {
           throttlers,
-          storage: new ThrottlerStorageRedisService(
-            new Redis(configService.getOrThrow<string>('redis.url')),
-          ),
+          storage: new ThrottlerStorageRedisService(throttlerRedis),
         };
       },
     }),

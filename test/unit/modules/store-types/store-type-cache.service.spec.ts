@@ -1,3 +1,4 @@
+import { AppLogger } from '../../../../src/infrastructure/logging/app.logger';
 import { CacheMetricsService } from '../../../../src/infrastructure/metrics/cache-metrics.service';
 import { RedisService } from '../../../../src/infrastructure/redis/redis.service';
 import { StoreTypeManagementRecord } from '../../../../src/modules/store-types/entities/store-type-management.entity';
@@ -33,7 +34,14 @@ describe('StoreTypeCacheService', () => {
     ({
       hit: jest.fn(),
       miss: jest.fn(),
+      error: jest.fn(),
     }) as unknown as jest.Mocked<CacheMetricsService>;
+
+  const makeLogger = () =>
+    ({
+      warnEvent: jest.fn(),
+      errorEvent: jest.fn(),
+    }) as unknown as jest.Mocked<AppLogger>;
 
   const TTL = 3600;
 
@@ -41,21 +49,21 @@ describe('StoreTypeCacheService', () => {
 
   describe('getList / setList', () => {
     it('returns null on cache miss', async () => {
-      expect(await new StoreTypeCacheService(makeRedis(), makeCacheMetrics()).getList()).toBeNull();
+      expect(await new StoreTypeCacheService(makeRedis(), makeCacheMetrics(), makeLogger()).getList()).toBeNull();
     });
 
     it('returns parsed array on cache hit', async () => {
       const records = [makeStoreType()];
       const serialized = JSON.stringify(records);
       const redis = makeRedis({ 'store-type:list:all': serialized });
-      const result = await new StoreTypeCacheService(redis, makeCacheMetrics()).getList();
+      const result = await new StoreTypeCacheService(redis, makeCacheMetrics(), makeLogger()).getList();
       expect(result).toEqual(JSON.parse(serialized));
     });
 
     it('stores list with correct key and TTL', async () => {
       const redis = makeRedis();
       const records = [makeStoreType()];
-      await new StoreTypeCacheService(redis, makeCacheMetrics()).setList(records);
+      await new StoreTypeCacheService(redis, makeCacheMetrics(), makeLogger()).setList(records);
       expect(redis.set).toHaveBeenCalledWith(
         'store-type:list:all',
         JSON.stringify(records),
@@ -69,21 +77,21 @@ describe('StoreTypeCacheService', () => {
 
   describe('getActiveList / setActiveList', () => {
     it('returns null on cache miss', async () => {
-      expect(await new StoreTypeCacheService(makeRedis(), makeCacheMetrics()).getActiveList()).toBeNull();
+      expect(await new StoreTypeCacheService(makeRedis(), makeCacheMetrics(), makeLogger()).getActiveList()).toBeNull();
     });
 
     it('returns parsed array on cache hit', async () => {
       const records = [makeStoreType()];
       const serialized = JSON.stringify(records);
       const redis = makeRedis({ 'store-type:list:active': serialized });
-      const result = await new StoreTypeCacheService(redis, makeCacheMetrics()).getActiveList();
+      const result = await new StoreTypeCacheService(redis, makeCacheMetrics(), makeLogger()).getActiveList();
       expect(result).toEqual(JSON.parse(serialized));
     });
 
     it('stores active list with correct key and TTL', async () => {
       const redis = makeRedis();
       const records = [makeStoreType()];
-      await new StoreTypeCacheService(redis, makeCacheMetrics()).setActiveList(records);
+      await new StoreTypeCacheService(redis, makeCacheMetrics(), makeLogger()).setActiveList(records);
       expect(redis.set).toHaveBeenCalledWith(
         'store-type:list:active',
         JSON.stringify(records),
@@ -97,21 +105,21 @@ describe('StoreTypeCacheService', () => {
 
   describe('getById / setById', () => {
     it('returns null on cache miss', async () => {
-      expect(await new StoreTypeCacheService(makeRedis(), makeCacheMetrics()).getById('st_1')).toBeNull();
+      expect(await new StoreTypeCacheService(makeRedis(), makeCacheMetrics(), makeLogger()).getById('st_1')).toBeNull();
     });
 
     it('returns parsed record on cache hit', async () => {
       const record = makeStoreType({ id: 'st_1' });
       const serialized = JSON.stringify(record);
       const redis = makeRedis({ 'store-type:id:st_1': serialized });
-      const result = await new StoreTypeCacheService(redis, makeCacheMetrics()).getById('st_1');
+      const result = await new StoreTypeCacheService(redis, makeCacheMetrics(), makeLogger()).getById('st_1');
       expect(result).toEqual(JSON.parse(serialized));
     });
 
     it('stores record under id key with TTL', async () => {
       const redis = makeRedis();
       const record = makeStoreType({ id: 'st_1' });
-      await new StoreTypeCacheService(redis, makeCacheMetrics()).setById(record);
+      await new StoreTypeCacheService(redis, makeCacheMetrics(), makeLogger()).setById(record);
       expect(redis.set).toHaveBeenCalledWith(
         'store-type:id:st_1',
         JSON.stringify(record),
@@ -125,21 +133,21 @@ describe('StoreTypeCacheService', () => {
 
   describe('getByCode / setByCode', () => {
     it('returns null on cache miss', async () => {
-      expect(await new StoreTypeCacheService(makeRedis(), makeCacheMetrics()).getByCode('grocery')).toBeNull();
+      expect(await new StoreTypeCacheService(makeRedis(), makeCacheMetrics(), makeLogger()).getByCode('grocery')).toBeNull();
     });
 
     it('returns parsed record on cache hit', async () => {
       const record = makeStoreType({ code: 'grocery' });
       const serialized = JSON.stringify(record);
       const redis = makeRedis({ 'store-type:code:grocery': serialized });
-      const result = await new StoreTypeCacheService(redis, makeCacheMetrics()).getByCode('grocery');
+      const result = await new StoreTypeCacheService(redis, makeCacheMetrics(), makeLogger()).getByCode('grocery');
       expect(result).toEqual(JSON.parse(serialized));
     });
 
     it('stores record under code key with TTL', async () => {
       const redis = makeRedis();
       const record = makeStoreType({ code: 'grocery' });
-      await new StoreTypeCacheService(redis, makeCacheMetrics()).setByCode('grocery', record);
+      await new StoreTypeCacheService(redis, makeCacheMetrics(), makeLogger()).setByCode('grocery', record);
       expect(redis.set).toHaveBeenCalledWith(
         'store-type:code:grocery',
         JSON.stringify(record),
@@ -154,7 +162,7 @@ describe('StoreTypeCacheService', () => {
   describe('invalidateOne', () => {
     it('deletes id key, code key, and both list keys', async () => {
       const redis = makeRedis();
-      await new StoreTypeCacheService(redis, makeCacheMetrics()).invalidateOne('st_1', 'restaurant');
+      await new StoreTypeCacheService(redis, makeCacheMetrics(), makeLogger()).invalidateOne('st_1', 'restaurant');
       expect(redis.del).toHaveBeenCalledWith(
         'store-type:id:st_1',
         'store-type:code:restaurant',
@@ -167,7 +175,7 @@ describe('StoreTypeCacheService', () => {
   describe('invalidateAll', () => {
     it('deletes both list keys', async () => {
       const redis = makeRedis();
-      await new StoreTypeCacheService(redis, makeCacheMetrics()).invalidateAll();
+      await new StoreTypeCacheService(redis, makeCacheMetrics(), makeLogger()).invalidateAll();
       expect(redis.del).toHaveBeenCalledWith(
         'store-type:list:all',
         'store-type:list:active',

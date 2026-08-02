@@ -38,6 +38,7 @@ stringData:
   DATABASE_URL: "postgresql://postgres:postgres@pgbouncer:6432/food_delivery?pgbouncer=true"
   # Migrate job — direct to Postgres (DDL is incompatible with PgBouncer transaction mode)
   DATABASE_DIRECT_URL: "postgresql://postgres:postgres@postgres:5432/food_delivery"
-  REDIS_URL: "redis://redis:6379"
+  REDIS_PASSWORD: "local-dev-only-change-me"
+  REDIS_URL: "redis://:local-dev-only-change-me@redis:6379"
   JWT_ACCESS_SECRET: "local-dev-access-secret-min-32-chars-xx"
   JWT_REFRESH_SECRET: "local-dev-refresh-secret-min-32-chars-x"

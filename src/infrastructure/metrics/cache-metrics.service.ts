@@ -17,11 +17,21 @@ export class CacheMetricsService {
     labelNames: ['cache'],
   });
 
+  readonly cacheErrorsTotal: Counter = getOrCreateCounter({
+    name: 'cache_errors_total',
+    help: 'Total number of cache operations that failed and fell through to the source of truth',
+    labelNames: ['cache', 'operation'],
+  });
+
   hit(cache: string): void {
     this.cacheHitsTotal.inc({ cache });
   }
 
   miss(cache: string): void {
     this.cacheMissesTotal.inc({ cache });
+  }
+
+  error(cache: string, operation: 'read' | 'write' | 'invalidate'): void {
+    this.cacheErrorsTotal.inc({ cache, operation });
   }
 }

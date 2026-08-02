@@ -1,5 +1,6 @@
 import { MerchantStatus, UserRole, UserStatus } from '@prisma/client';
 
+import { AppLogger } from '../../../../src/infrastructure/logging/app.logger';
 import { CacheMetricsService } from '../../../../src/infrastructure/metrics/cache-metrics.service';
 import { RedisService } from '../../../../src/infrastructure/redis/redis.service';
 import { MerchantOwnershipRecord } from '../../../../src/modules/merchants/entities/merchant-ownership.entity';
@@ -38,11 +39,18 @@ describe('MerchantCacheService', () => {
     ({
       hit: jest.fn(),
       miss: jest.fn(),
+      error: jest.fn(),
     }) as unknown as jest.Mocked<CacheMetricsService>;
+
+  const makeLogger = () =>
+    ({
+      warnEvent: jest.fn(),
+      errorEvent: jest.fn(),
+    }) as unknown as jest.Mocked<AppLogger>;
 
   describe('getById', () => {
     it('returns null on cache miss', async () => {
-      const service = new MerchantCacheService(makeRedis(), makeCacheMetrics());
+      const service = new MerchantCacheService(makeRedis(), makeCacheMetrics(), makeLogger());
       expect(await service.getById('merchant_1')).toBeNull();
     });
 
@@ -50,7 +58,7 @@ describe('MerchantCacheService', () => {
       const merchant = makeMerchant();
       const serialized = JSON.stringify(merchant);
       const redis = makeRedis({ 'merchant:id:merchant_1': serialized });
-      const service = new MerchantCacheService(redis, makeCacheMetrics());
+      const service = new MerchantCacheService(redis, makeCacheMetrics(), makeLogger());
 
       const result = await service.getById('merchant_1');
       expect(result).toEqual(JSON.parse(serialized));
@@ -60,7 +68,7 @@ describe('MerchantCacheService', () => {
   describe('setById', () => {
     it('stores merchant under id key with TTL', async () => {
       const redis = makeRedis();
-      const service = new MerchantCacheService(redis, makeCacheMetrics());
+      const service = new MerchantCacheService(redis, makeCacheMetrics(), makeLogger());
       const merchant = makeMerchant();
 
       await service.setById(merchant);
@@ -76,7 +84,7 @@ describe('MerchantCacheService', () => {
 
   describe('getByUserId', () => {
     it('returns null on cache miss', async () => {
-      const service = new MerchantCacheService(makeRedis(), makeCacheMetrics());
+      const service = new MerchantCacheService(makeRedis(), makeCacheMetrics(), makeLogger());
       expect(await service.getByUserId('usr_1')).toBeNull();
     });
 
@@ -84,7 +92,7 @@ describe('MerchantCacheService', () => {
       const merchant = makeMerchant();
       const serialized = JSON.stringify(merchant);
       const redis = makeRedis({ 'merchant:user:usr_1': serialized });
-      const service = new MerchantCacheService(redis, makeCacheMetrics());
+      const service = new MerchantCacheService(redis, makeCacheMetrics(), makeLogger());
 
       const result = await service.getByUserId('usr_1');
       expect(result).toEqual(JSON.parse(serialized));
@@ -94,7 +102,7 @@ describe('MerchantCacheService', () => {
   describe('setByUserId', () => {
     it('stores merchant under userId key with TTL', async () => {
       const redis = makeRedis();
-      const service = new MerchantCacheService(redis, makeCacheMetrics());
+      const service = new MerchantCacheService(redis, makeCacheMetrics(), makeLogger());
       const merchant = makeMerchant();
 
       await service.setByUserId('usr_1', merchant);
@@ -111,7 +119,7 @@ describe('MerchantCacheService', () => {
   describe('invalidate', () => {
     it('deletes both id and userId keys', async () => {
       const redis = makeRedis();
-      const service = new MerchantCacheService(redis, makeCacheMetrics());
+      const service = new MerchantCacheService(redis, makeCacheMetrics(), makeLogger());
 
       await service.invalidate('merchant_1', 'usr_1');
 

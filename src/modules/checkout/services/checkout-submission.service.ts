@@ -11,6 +11,8 @@ import {
 
 import { ErrorCodes } from '../../../common/constants/error-codes';
 import { AppException } from '../../../common/exceptions/app.exception';
+import { runBestEffort } from '../../../common/utils/run-best-effort.util';
+import { AppLogger } from '../../../infrastructure/logging/app.logger';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import {
   QueueJobNames,
@@ -61,6 +63,7 @@ export class CheckoutSubmissionService {
     private readonly queueService: QueueService,
     private readonly systemMessageService: SystemMessageService,
     private readonly notificationEventService: NotificationEventService,
+    private readonly logger: AppLogger,
   ) {}
 
   async submitCurrentCustomerCheckout(
@@ -217,24 +220,49 @@ export class CheckoutSubmissionService {
       });
 
       if (result.wasCreated) {
-        await this.queueService.add(
-          QueueNames.orderTimeouts,
-          QueueJobNames.orderTimeouts.startTimeout,
-          { orderId: result.order.id },
-          { delayMs: 30 * 60 * 1000 },
+        // The order is already committed at this point — none of these are
+        // allowed to turn a successfully placed order into a failed
+        // response. Each is best-effort: log and move on rather than
+        // throwing, so a Redis/messaging blip doesn't tell the customer
+        // their order failed when it didn't. (The order-timeout job in
+        // particular is a safety net, not a correctness requirement — an
+        // order missing its auto-cancel timer is recoverable, an order the
+        // customer thinks never got placed is a support ticket.)
+        await runBestEffort(
+          'enqueue order timeout job',
+          () =>
+            this.queueService.add(
+              QueueNames.orderTimeouts,
+              QueueJobNames.orderTimeouts.startTimeout,
+              { orderId: result.order.id },
+              { delayMs: 30 * 60 * 1000 },
+            ),
+          this.logger,
+          'CheckoutSubmissionService',
         );
-        await this.systemMessageService.publishOrderEvent(currentUser, {
-          orderId: result.order.id,
-          code: 'ORDER_PLACED',
-          metadata: {
-            actorUserId: currentUser.userId,
-            orderCode: result.order.orderCode,
-          },
-          templateVariables: {
-            orderCode: result.order.orderCode,
-          },
-        });
-        await this.publishReservedInventoryAlerts(reservedInventoryAlerts.alerts);
+        await runBestEffort(
+          'publish order placed event',
+          () =>
+            this.systemMessageService.publishOrderEvent(currentUser, {
+              orderId: result.order.id,
+              code: 'ORDER_PLACED',
+              metadata: {
+                actorUserId: currentUser.userId,
+                orderCode: result.order.orderCode,
+              },
+              templateVariables: {
+                orderCode: result.order.orderCode,
+              },
+            }),
+          this.logger,
+          'CheckoutSubmissionService',
+        );
+        await runBestEffort(
+          'publish reserved inventory alerts',
+          () => this.publishReservedInventoryAlerts(reservedInventoryAlerts.alerts),
+          this.logger,
+          'CheckoutSubmissionService',
+        );
       }
 
       return buildCheckoutSubmission(result.order, {

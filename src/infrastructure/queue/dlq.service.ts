@@ -30,6 +30,17 @@ export class DlqService implements OnModuleInit {
       keyPrefix: '',
       maxRetriesPerRequest: null,
     });
+
+    // Without an 'error' listener, ioredis throws synchronously on a
+    // connection error and crashes the process — same issue fixed on
+    // QueueService's connection; this client needs the same handler.
+    this.connection.on('error', (error) => {
+      this.logger.warnEvent(
+        'DLQ Redis connection error.',
+        { error: String(error) },
+        'DlqService',
+      );
+    });
   }
 
   onModuleInit(): void {

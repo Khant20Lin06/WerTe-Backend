@@ -1,4 +1,5 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { Public } from './common/decorators/public.decorator';
@@ -42,7 +43,15 @@ export class AppController {
     description: 'Returns readiness checks including database connectivity.',
   })
   @Get('health/ready')
-  async ready() {
-    return this.appService.ready();
+  @HttpCode(HttpStatus.OK)
+  async ready(@Res({ passthrough: true }) res: Response) {
+    const result = await this.appService.ready();
+    // A degraded component (Redis/DB/queue down) must fail the HTTP status,
+    // not just the JSON body — Docker's healthcheck and Kubernetes'
+    // readinessProbe both key off the response code, not response contents.
+    if (result.status !== 'ok') {
+      res.status(HttpStatus.SERVICE_UNAVAILABLE);
+    }
+    return result;
   }
 }

@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 
+import { AppLogger } from '../../../infrastructure/logging/app.logger';
 import { CacheMetricsService } from '../../../infrastructure/metrics/cache-metrics.service';
 import { RedisService } from '../../../infrastructure/redis/redis.service';
+import { safeRedisOp } from '../../../infrastructure/redis/safe-redis-op';
 import { CustomerStoreDiscoveryRecord } from '../entities/customer-store-discovery.entity';
 
 // Store discovery is the highest-traffic customer read — every store browse
@@ -44,6 +46,7 @@ export class DiscoveryCacheService {
   constructor(
     private readonly redis: RedisService,
     private readonly cacheMetrics: CacheMetricsService,
+    private readonly logger: AppLogger,
   ) {}
 
   isCacheable(filter: {
@@ -64,66 +67,72 @@ export class DiscoveryCacheService {
   async getList(
     filter: DiscoveryFilter,
   ): Promise<CustomerStoreDiscoveryRecord[] | null> {
-    const key = KEY.list(filter.storeTypeCodes, filter.township);
-    const [raw, remainingTtl] = await Promise.all([
-      this.redis.get(key),
-      this.redis.ttl(key),
-    ]);
+    return safeRedisOp('read', CACHE_NAME, this.logger, this.cacheMetrics, null, async () => {
+      const key = KEY.list(filter.storeTypeCodes, filter.township);
+      const [raw, remainingTtl] = await Promise.all([
+        this.redis.get(key),
+        this.redis.ttl(key),
+      ]);
 
-    if (raw === null) {
-      this.cacheMetrics.miss(CACHE_NAME);
-      return null;
-    }
+      if (raw === null) {
+        this.cacheMetrics.miss(CACHE_NAME);
+        return null;
+      }
 
-    // Probabilistic Early Expiry: stagger refreshes across the final window
-    // of the TTL so concurrent requests do not all rebuild the cache at once.
-    const earlyWindow = TTL_SECONDS * EARLY_EXPIRY_FACTOR;
-    if (remainingTtl >= 0 && remainingTtl < earlyWindow && Math.random() < STAMPEDE_PROBABILITY) {
-      this.cacheMetrics.miss(CACHE_NAME);
-      return null;
-    }
+      // Probabilistic Early Expiry: stagger refreshes across the final window
+      // of the TTL so concurrent requests do not all rebuild the cache at once.
+      const earlyWindow = TTL_SECONDS * EARLY_EXPIRY_FACTOR;
+      if (remainingTtl >= 0 && remainingTtl < earlyWindow && Math.random() < STAMPEDE_PROBABILITY) {
+        this.cacheMetrics.miss(CACHE_NAME);
+        return null;
+      }
 
-    this.cacheMetrics.hit(CACHE_NAME);
-    return JSON.parse(raw) as CustomerStoreDiscoveryRecord[];
+      this.cacheMetrics.hit(CACHE_NAME);
+      return JSON.parse(raw) as CustomerStoreDiscoveryRecord[];
+    });
   }
 
   async setList(
     filter: DiscoveryFilter,
     records: CustomerStoreDiscoveryRecord[],
   ): Promise<void> {
-    await this.redis.set(
-      KEY.list(filter.storeTypeCodes, filter.township),
-      JSON.stringify(records),
-      'EX',
-      TTL_SECONDS,
+    await safeRedisOp('write', CACHE_NAME, this.logger, this.cacheMetrics, undefined, () =>
+      this.redis.set(
+        KEY.list(filter.storeTypeCodes, filter.township),
+        JSON.stringify(records),
+        'EX',
+        TTL_SECONDS,
+      ),
     );
   }
 
   async invalidateAll(): Promise<void> {
-    // SCAN instead of KEYS to avoid blocking Redis on large keyspaces.
-    // ioredis keyPrefix is prepended automatically to the SCAN MATCH pattern.
-    const prefix = this.redis.options.keyPrefix ?? '';
-    const pattern = `${prefix}store-discovery:list:*`;
-    let cursor = '0';
+    await safeRedisOp('invalidate', CACHE_NAME, this.logger, this.cacheMetrics, undefined, async () => {
+      // SCAN instead of KEYS to avoid blocking Redis on large keyspaces.
+      // ioredis keyPrefix is prepended automatically to the SCAN MATCH pattern.
+      const prefix = this.redis.options.keyPrefix ?? '';
+      const pattern = `${prefix}store-discovery:list:*`;
+      let cursor = '0';
 
-    do {
-      const [nextCursor, keys] = await this.redis.scan(
-        cursor,
-        'MATCH',
-        pattern,
-        'COUNT',
-        100,
-      );
-      cursor = nextCursor;
-
-      if (keys.length > 0) {
-        // Strip keyPrefix from returned keys before passing to del —
-        // ioredis re-adds the prefix on write commands.
-        const stripped = keys.map((k) =>
-          prefix.length > 0 && k.startsWith(prefix) ? k.slice(prefix.length) : k,
+      do {
+        const [nextCursor, keys] = await this.redis.scan(
+          cursor,
+          'MATCH',
+          pattern,
+          'COUNT',
+          100,
         );
-        await this.redis.del(...stripped);
-      }
-    } while (cursor !== '0');
+        cursor = nextCursor;
+
+        if (keys.length > 0) {
+          // Strip keyPrefix from returned keys before passing to del —
+          // ioredis re-adds the prefix on write commands.
+          const stripped = keys.map((k) =>
+            prefix.length > 0 && k.startsWith(prefix) ? k.slice(prefix.length) : k,
+          );
+          await this.redis.del(...stripped);
+        }
+      } while (cursor !== '0');
+    });
   }
 }

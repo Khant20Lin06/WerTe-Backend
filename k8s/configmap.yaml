@@ -20,7 +20,7 @@ data:
   DATABASE_POOL_TIMEOUT_SECONDS: "10"
 
   # Redis
-  REDIS_URL: "redis://redis-service:6379"
+  # REDIS_URL is in Secret (contains the auth password)
   REDIS_KEY_PREFIX: "food-delivery"
 
   # JWT (non-secret fields)

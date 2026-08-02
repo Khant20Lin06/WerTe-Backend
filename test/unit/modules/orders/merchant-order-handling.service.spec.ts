@@ -2,6 +2,7 @@ import { HttpStatus } from '@nestjs/common';
 import { OrderStatus, UserRole, UserStatus } from '@prisma/client';
 
 import { makeAuthenticatedUser } from '../../helpers/authenticated-user.factory';
+import { AppLogger } from '../../../../src/infrastructure/logging/app.logger';
 import { PrismaService } from '../../../../src/infrastructure/database/prisma.service';
 import { QueueService } from '../../../../src/infrastructure/queue/queue.service';
 import { SystemMessageService } from '../../../../src/modules/messaging/services/system-message.service';
@@ -25,6 +26,7 @@ function makeOrderDetail(
     cartId: 'cart_1',
     status: OrderStatus.PLACED,
     currencyCode: 'MMK',
+    deliveryType: 'DELIVERY',
     subtotalAmount: '6500',
     discountAmount: '0',
     deliveryFee: '500',
@@ -110,6 +112,7 @@ describe('MerchantOrderHandlingService', () => {
         .mockResolvedValue(undefined),
     } as unknown as jest.Mocked<NotificationEventService>;
     const queueService = { add: jest.fn().mockResolvedValue(undefined) } as unknown as jest.Mocked<QueueService>;
+    const logger = { errorEvent: jest.fn() } as unknown as jest.Mocked<AppLogger>;
     const service = new MerchantOrderHandlingService(
       prisma,
       repository,
@@ -119,6 +122,7 @@ describe('MerchantOrderHandlingService', () => {
       menuInventoryLifecycleService,
       notificationEventService,
       queueService,
+      logger,
     );
 
     return {
@@ -128,6 +132,8 @@ describe('MerchantOrderHandlingService', () => {
       systemMessageService,
       menuInventoryLifecycleService,
       notificationEventService,
+      queueService,
+      logger,
       service,
     };
   };
@@ -172,6 +178,62 @@ describe('MerchantOrderHandlingService', () => {
       }),
     );
     expect(result.status).toBe(OrderStatus.MERCHANT_ACCEPTED);
+  });
+
+  it('still returns a successful accept when dispatch/rider-timeout enqueue and the order-event publish all fail (e.g. Redis is down)', async () => {
+    const { repository, queryService, systemMessageService, queueService, logger, service } =
+      makeService();
+    const currentOrder = makeOrderDetail({
+      status: OrderStatus.PLACED,
+    });
+    const acceptedOrder = makeOrderDetail({
+      status: OrderStatus.MERCHANT_ACCEPTED,
+      availableActions: ['mark_preparing'],
+    });
+
+    repository.findMerchantOrderDetail.mockResolvedValue({
+      status: OrderStatus.PLACED,
+    } as never);
+    queryService.buildOrderDetail
+      .mockReturnValueOnce(currentOrder)
+      .mockReturnValueOnce(acceptedOrder);
+    repository.updateOrderStatus.mockResolvedValue({} as never);
+    queryService.attachAvailableActions.mockImplementation(
+      (_currentUser, order) => order,
+    );
+    systemMessageService.publishOrderEvent.mockRejectedValue(
+      new Error('connect ETIMEDOUT'),
+    );
+    queueService.add.mockRejectedValue(new Error('connect ETIMEDOUT'));
+
+    const result = await service.acceptCurrentMerchantOrder(currentUser, {
+      orderId: 'order_1',
+    });
+
+    // The accept is already committed — none of the three failing
+    // post-commit side effects (order-event publish, auto-dispatch enqueue,
+    // rider-timeout enqueue) should surface as an error to the merchant.
+    expect(repository.updateOrderStatus).toHaveBeenCalled();
+    expect(result.status).toBe(OrderStatus.MERCHANT_ACCEPTED);
+    // Both queue jobs were attempted (dispatch + rider-timeout) despite the
+    // first one failing — one failure must not skip the other.
+    expect(queueService.add).toHaveBeenCalledTimes(2);
+    expect(queueService.add).toHaveBeenNthCalledWith(
+      1,
+      'dispatch',
+      'auto-dispatch-order',
+      { orderId: 'order_1' },
+      { delayMs: 500 },
+    );
+    expect(queueService.add).toHaveBeenNthCalledWith(
+      2,
+      'order-timeouts',
+      'rider-timeout',
+      { orderId: 'order_1' },
+      { delayMs: 30 * 60 * 1000 },
+    );
+    // Each failure is still logged, so the outage is observable.
+    expect(logger.errorEvent).toHaveBeenCalledTimes(3);
   });
 
   it('rejects an eligible placed order with merchant-supplied reason metadata', async () => {
@@ -279,12 +341,18 @@ describe('MerchantOrderHandlingService', () => {
 
   it('marks an accepted order as preparing when the transition is allowed', async () => {
     const { repository, queryService, service } = makeService();
+    // PICKUP orders skip the rider-acceptance step, so MERCHANT_ACCEPTED is
+    // sufficient to move straight to PREPARING (see
+    // OrderPolicyService.canMarkPreparing). A DELIVERY order in this same
+    // state would need RIDER_ACCEPTED first.
     const currentOrder = makeOrderDetail({
       status: OrderStatus.MERCHANT_ACCEPTED,
+      deliveryType: 'PICKUP',
       availableActions: ['mark_preparing'],
     });
     const preparingOrder = makeOrderDetail({
       status: OrderStatus.PREPARING,
+      deliveryType: 'PICKUP',
       availableActions: [],
     });
 

@@ -14,6 +14,7 @@ import {
 } from '@prisma/client';
 
 import { ErrorCodes } from '../../../../src/common/constants/error-codes';
+import { AppLogger } from '../../../../src/infrastructure/logging/app.logger';
 import { PrismaService } from '../../../../src/infrastructure/database/prisma.service';
 import { QueueService } from '../../../../src/infrastructure/queue/queue.service';
 import { CartsRepository } from '../../../../src/modules/carts/repositories/carts.repository';
@@ -27,6 +28,7 @@ import { MenusService } from '../../../../src/modules/menus/services/menus.servi
 import { NotificationEventService } from '../../../../src/modules/notifications/services/notification-event.service';
 import { OrdersRepository } from '../../../../src/modules/orders/repositories/orders.repository';
 import { CheckoutPaymentIntentService } from '../../../../src/modules/payments/services/checkout-payment-intent.service';
+import { PromotionsRepository } from '../../../../src/modules/promotions/repositories/promotions.repository';
 import { makeAuthenticatedUser } from '../../helpers/authenticated-user.factory';
 
 function makeCheckoutContext(
@@ -221,6 +223,16 @@ describe('CheckoutSubmissionService', () => {
       publishMerchantInventoryAlert: jest.fn().mockResolvedValue(undefined),
     } as unknown as jest.Mocked<NotificationEventService>);
 
+  const makePromotionsRepository = () =>
+    ({
+      createUsage: jest.fn().mockResolvedValue(undefined),
+    } as unknown as jest.Mocked<PromotionsRepository>);
+
+  const makeLogger = () =>
+    ({
+      errorEvent: jest.fn(),
+    } as unknown as jest.Mocked<AppLogger>);
+
   const makeCheckoutPricingService = (
     overrides?: Partial<
       Awaited<ReturnType<CheckoutPricingService['buildPricingBreakdown']>>
@@ -292,9 +304,11 @@ describe('CheckoutSubmissionService', () => {
       makeMenusService(),
       menuInventoryLifecycleService,
       checkoutPaymentIntentService,
+      makePromotionsRepository(),
       queueService,
       systemMessageService,
       notificationEventService,
+      makeLogger(),
     );
 
     const result = await service.submitCurrentCustomerCheckout(currentUser, {
@@ -382,6 +396,7 @@ describe('CheckoutSubmissionService', () => {
       {
         orderId: 'order_1',
       },
+      { delayMs: 30 * 60 * 1000 },
     );
     expect(systemMessageService.publishOrderEvent).toHaveBeenCalledWith(
       currentUser,
@@ -410,6 +425,102 @@ describe('CheckoutSubmissionService', () => {
         status: PaymentStatus.PENDING,
       },
     });
+  });
+
+  it('still returns a successful order when the post-commit timeout job, order-placed message, and inventory alert all fail (e.g. Redis is down)', async () => {
+    const checkoutContextService = {
+      getValidatedCurrentCustomerCheckoutContext: jest
+        .fn()
+        .mockResolvedValue(makeCheckoutContext()),
+    } as unknown as jest.Mocked<CheckoutContextService>;
+    const ordersRepository = {
+      findByIdempotencyKey: jest.fn().mockResolvedValue(null),
+      createCheckoutOrder: jest.fn().mockResolvedValue(makeSubmissionRecord()),
+    } as unknown as jest.Mocked<OrdersRepository>;
+    const cartsRepository = {
+      updateCart: jest.fn().mockResolvedValue({ id: 'cart_1' }),
+    } as unknown as jest.Mocked<CartsRepository>;
+    // Simulates the exact live-verified failure mode: Redis unreachable, so
+    // the BullMQ enqueue rejects.
+    const queueService = {
+      add: jest.fn().mockRejectedValue(new Error('connect ETIMEDOUT')),
+    } as unknown as jest.Mocked<QueueService>;
+    const checkoutPaymentIntentService = makeCheckoutPaymentIntentService();
+    const systemMessageService = {
+      publishOrderEvent: jest
+        .fn()
+        .mockRejectedValue(new Error('Redis pub/sub unavailable')),
+    } as unknown as jest.Mocked<SystemMessageService>;
+    const menuInventoryLifecycleService = {
+      reserveTrackedInventoryForOrder: jest.fn().mockResolvedValue({
+        alerts: [
+          {
+            merchantUserId: 'usr_merchant_1',
+            branchId: 'branch_1',
+            branchName: null,
+            resourceType: 'MENU_ITEM',
+            resourceId: 'item_1',
+            resourceLabel: 'Mohinga',
+            attentionLevel: 'LOW_STOCK',
+            stockQuantity: 3,
+            lowStockThreshold: 3,
+          },
+        ],
+        inventoryLotAllocationsByLineKey: {
+          cart_item_1: [
+            {
+              inventoryLotId: 'lot_1',
+              batchNoSnapshot: 'BATCH-001',
+              expiryDateSnapshot: '2026-05-30T00:00:00.000Z',
+              quantity: 2,
+            },
+          ],
+        },
+      }),
+    } as unknown as jest.Mocked<MenuInventoryLifecycleService>;
+    const notificationEventService = {
+      publishMerchantInventoryAlert: jest
+        .fn()
+        .mockRejectedValue(new Error('Redis pub/sub unavailable')),
+    } as unknown as jest.Mocked<NotificationEventService>;
+    const logger = makeLogger();
+    const service = new CheckoutSubmissionService(
+      makePrismaService(),
+      checkoutContextService,
+      makeCheckoutPricingService(),
+      ordersRepository,
+      cartsRepository,
+      makeMenusService(),
+      menuInventoryLifecycleService,
+      checkoutPaymentIntentService,
+      makePromotionsRepository(),
+      queueService,
+      systemMessageService,
+      notificationEventService,
+      logger,
+    );
+
+    const result = await service.submitCurrentCustomerCheckout(currentUser, {
+      branchId: 'branch_1',
+      addressId: 'addr_1',
+      idempotencyKey: 'idem_1',
+    });
+
+    // The order is still created and returned successfully — none of the
+    // three failing side effects should surface as an error to the caller.
+    expect(ordersRepository.createCheckoutOrder).toHaveBeenCalled();
+    expect(result).toMatchObject({
+      orderId: 'order_1',
+      status: OrderStatus.PLACED,
+      isIdempotentReplay: false,
+    });
+    // Each failure is still logged, so the outage is observable.
+    expect(logger.errorEvent).toHaveBeenCalledTimes(3);
+    expect(logger.errorEvent).toHaveBeenCalledWith(
+      expect.stringContaining('enqueue order timeout job'),
+      expect.objectContaining({ error: expect.stringContaining('ETIMEDOUT') }),
+      'CheckoutSubmissionService',
+    );
   });
 
   it('returns an existing order and existing payment intent for a replayed idempotency key without creating duplicates', async () => {
@@ -443,9 +554,11 @@ describe('CheckoutSubmissionService', () => {
       makeMenusService(),
       makeMenuInventoryLifecycleService(),
       checkoutPaymentIntentService,
+      makePromotionsRepository(),
       queueService,
       makeSystemMessageService(),
       makeNotificationEventService(),
+      makeLogger(),
     );
 
     const result = await service.submitCurrentCustomerCheckout(currentUser, {
@@ -497,9 +610,11 @@ describe('CheckoutSubmissionService', () => {
       makeMenusService(),
       makeMenuInventoryLifecycleService(),
       checkoutPaymentIntentService,
+      makePromotionsRepository(),
       {} as QueueService,
       makeSystemMessageService(),
       makeNotificationEventService(),
+      makeLogger(),
     );
 
     const result = await service.submitCurrentCustomerCheckout(currentUser, {
@@ -548,9 +663,11 @@ describe('CheckoutSubmissionService', () => {
       makeMenusService(),
       makeMenuInventoryLifecycleService(),
       makeCheckoutPaymentIntentService(),
+      makePromotionsRepository(),
       {} as QueueService,
       makeSystemMessageService(),
       makeNotificationEventService(),
+      makeLogger(),
     );
 
     await expect(
@@ -611,9 +728,11 @@ describe('CheckoutSubmissionService', () => {
       makeMenusService(),
       makeMenuInventoryLifecycleService(),
       checkoutPaymentIntentService,
+      makePromotionsRepository(),
       queueService,
       makeSystemMessageService(),
       makeNotificationEventService(),
+      makeLogger(),
     );
 
     const result = await service.submitCurrentCustomerCheckout(currentUser, {
@@ -669,9 +788,11 @@ describe('CheckoutSubmissionService', () => {
       makeMenusService(),
       makeMenuInventoryLifecycleService(),
       makeCheckoutPaymentIntentService(),
+      makePromotionsRepository(),
       queueService,
       makeSystemMessageService(),
       makeNotificationEventService(),
+      makeLogger(),
     );
 
     await expect(
@@ -729,9 +850,11 @@ describe('CheckoutSubmissionService', () => {
       makeMenusService(),
       makeMenuInventoryLifecycleService(),
       makeCheckoutPaymentIntentService(),
+      makePromotionsRepository(),
       queueService,
       makeSystemMessageService(),
       makeNotificationEventService(),
+      makeLogger(),
     );
 
     await expect(
@@ -790,9 +913,11 @@ describe('CheckoutSubmissionService', () => {
       makeMenusService(),
       makeMenuInventoryLifecycleService(),
       checkoutPaymentIntentService,
+      makePromotionsRepository(),
       queueService,
       makeSystemMessageService(),
       makeNotificationEventService(),
+      makeLogger(),
     );
 
     const result = await service.submitCurrentCustomerCheckout(currentUser, {
